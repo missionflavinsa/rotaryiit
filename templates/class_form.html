@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}{{ action }} Class{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; max-width: 1200px; margin: 0 auto;">
+    <!-- Form Side -->
+    <div class="card">
+        <form method="POST">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="name">Class Name</label>
+                    <input type="text" id="name" name="name" value="{{ classroom.name if classroom else '' }}" required placeholder="Grade 10">
+                </div>
+                <div class="form-group">
+                    <label for="section">Section</label>
+                    <input type="text" id="section" name="section" value="{{ classroom.section if classroom else '' }}" required placeholder="A">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="rows">Total Rows</label>
+                    <input type="number" id="rows" name="rows" value="{{ classroom.rows if classroom else 5 }}" min="1" max="20" required onchange="renderGrid()">
+                </div>
+                <div class="form-group">
+                    <label for="columns">Benches per Row</label>
+                    <input type="number" id="columns" name="columns" value="{{ classroom.columns if classroom else 4 }}" min="1" max="20" required onchange="renderGrid()">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="bench_type">Bench Type</label>
+                <select id="bench_type" name="bench_type" required onchange="renderGrid()">
+                    <option value="single" {{ 'selected' if classroom and classroom.bench_type == 'single' else '' }}>Single Bench (1 Student)</option>
+                    <option value="double" {{ 'selected' if not classroom or classroom.bench_type == 'double' else '' }}>Double Bench (2 Students)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label style="display: flex; justify-content: space-between; align-items: center;">
+                    Classroom Layout (Benches per Row)
+                    <button type="button" class="btn btn-primary" style="padding: 4px 12px; font-size: 0.8rem; background: var(--secondary);" onclick="addRow()">+ Add Row</button>
+                </label>
+                <div id="rows-container" style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px; max-height: 300px; overflow-y: auto; padding-right: 5px;">
+                    <!-- Row inputs will be added here -->
+                </div>
+                <input type="hidden" name="row_layout" id="row_layout">
+            </div>
+
+            <div class="card" style="background: rgba(0,0,0,0.3); border: 1px dashed var(--glass-border); text-align: center; margin-bottom: 2rem; padding: 1rem;">
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 5px;">Total Seating Capacity</p>
+                <h2 id="capacity-display" style="color: var(--secondary);">0</h2>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Save Classroom Configuration</button>
+            <a href="{{ url_for('list_classes') }}" style="display: block; text-align: center; margin-top: 1.5rem; color: var(--text-muted); text-decoration: none;">Cancel</a>
+        </form>
+    </div>
+
+    <!-- Visualizer Side -->
+    <div class="card" style="display: flex; flex-direction: column;">
+        <h3 style="margin-bottom: 1.5rem; text-align: center; color: var(--text-muted);">Real-time Classroom Preview</h3>
+        <div id="grid-container" style="flex: 1; display: flex; align-items: flex-start; justify-content: center; background: rgba(0,0,0,0.4); border-radius: 16px; padding: 2rem; overflow: auto; min-height: 400px;">
+            <!-- Grid rendered via JS -->
+        </div>
+        <p style="text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem;">
+            <span style="display: inline-block; width: 12px; height: 12px; background: var(--primary); border-radius: 3px; margin-right: 5px;"></span> Student Spot
+        </p>
+    </div>
+</div>
+
+<style>
+    .bench {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+        border-radius: 8px;
+        padding: 5px;
+        display: flex;
+        gap: 5px;
+        justify-content: center;
+        transition: transform 0.3s ease;
+    }
+    .bench:hover {
+        transform: scale(1.05);
+        border-color: var(--primary);
+    }
+    .spot {
+        width: 12px;
+        height: 12px;
+        background: var(--primary);
+        border-radius: 50%;
+        opacity: 0.6;
+    }
+    .row-config-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(255,255,255,0.02);
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    .row-config-item span { font-size: 0.8rem; min-width: 60px; color: var(--text-muted); }
+    .row-config-item input { flex: 1; padding: 4px 8px; }
+    .row-config-item .btn-remove { 
+        background: rgba(239, 68, 68, 0.2); 
+        color: #ef4444; 
+        border: none; 
+        border-radius: 4px; 
+        padding: 4px 8px; 
+        cursor: pointer;
+    }
+</style>
+
+<script>
+    let rowLayout = JSON.parse('{{ (classroom.get_row_layout() if classroom else [5,5,5,5])|tojson|safe }}');
+
+    function addRow() {
+        rowLayout.push(5);
+        updateRowControls();
+        renderGrid();
+    }
+
+    function removeRow(index) {
+        rowLayout.splice(index, 1);
+        updateRowControls();
+        renderGrid();
+    }
+
+    function updateBenchCount(index, value) {
+        rowLayout[index] = parseInt(value) || 0;
+        renderGrid();
+    }
+
+    function updateRowControls() {
+        const container = document.getElementById('rows-container');
+        container.innerHTML = '';
+        rowLayout.forEach((count, index) => {
+            const div = document.createElement('div');
+            div.className = 'row-config-item';
+            div.innerHTML = `
+                <span>Row ${index + 1}</span>
+                <input type="number" value="${count}" min="1" max="20" oninput="updateBenchCount(${index}, this.value)">
+                <button type="button" class="btn-remove" onclick="removeRow(${index})">×</button>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function renderGrid() {
+        const benchType = document.getElementById('bench_type').value;
+        const multiplier = benchType === 'single' ? 1 : 2;
+        
+        let totalBenches = 0;
+        rowLayout.forEach(count => totalBenches += count);
+        
+        const capacity = totalBenches * multiplier;
+        document.getElementById('capacity-display').innerText = capacity;
+        document.getElementById('row_layout').value = rowLayout.join(',');
+
+        const container = document.getElementById('grid-container');
+        container.innerHTML = '';
+        
+        const grid = document.createElement('div');
+        grid.style.display = 'flex';
+        grid.style.flexDirection = 'column';
+        grid.style.gap = '15px';
+        grid.style.width = '100%';
+        
+        rowLayout.forEach(count => {
+            const rowDiv = document.createElement('div');
+            rowDiv.style.display = 'flex';
+            rowDiv.style.gap = '10px';
+            rowDiv.style.justifyContent = 'center';
+            
+            for (let c = 0; c < count; c++) {
+                const bench = document.createElement('div');
+                bench.className = 'bench';
+                
+                for (let s = 0; s < multiplier; s++) {
+                    const spot = document.createElement('div');
+                    spot.className = 'spot';
+                    bench.appendChild(spot);
+                }
+                rowDiv.appendChild(bench);
+            }
+            grid.appendChild(rowDiv);
+        });
+        
+        container.appendChild(grid);
+    }
+
+    // Initial load
+    document.addEventListener('DOMContentLoaded', () => {
+        updateRowControls();
+        renderGrid();
+    });
+</script>
+{% endblock %}

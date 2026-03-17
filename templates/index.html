@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="grid">
+    <div class="card">
+        <h3 style="color: var(--primary)"><i class="fas fa-chalkboard"></i> Classes</h3>
+        <p style="font-size: 2rem; font-weight: 700;">{{ stats.classes }}</p>
+        <p style="color: var(--text-muted)">Total active sections</p>
+    </div>
+    <div class="card">
+        <h3 style="color: var(--secondary)"><i class="fas fa-user-graduate"></i> Students</h3>
+        <p style="font-size: 2rem; font-weight: 700;">{{ stats.students }}</p>
+        <p style="color: var(--text-muted)">Enrolled students</p>
+    </div>
+    <div class="card">
+        <h3 style="color: #fbbf24"><i class="fas fa-file-alt"></i> Exams</h3>
+        <p style="font-size: 2rem; font-weight: 700;">{{ stats.tests }}</p>
+        <p style="color: var(--text-muted)">Scheduled tests</p>
+    </div>
+    <div class="card">
+        <h3 style="color: #4ade80"><i class="fas fa-user-tie"></i> Staff</h3>
+        <p style="font-size: 2rem; font-weight: 700;">{{ stats.supervisors }}</p>
+        <p style="color: var(--text-muted)">Active supervisors</p>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Quick Actions</h2>
+    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+        <a href="{{ url_for('add_class') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add Class</a>
+        <a href="{{ url_for('add_student') }}" class="btn btn-primary" style="background: linear-gradient(to right, #ec4899, #db2777); box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);"><i class="fas fa-user-plus"></i> Add Student</a>
+        <a href="{{ url_for('add_test') }}" class="btn btn-primary" style="background: linear-gradient(to right, #f59e0b, #d97706); box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);"><i class="fas fa-calendar-plus"></i> Create Test</a>
+        <a href="{{ url_for('bulk_import') }}" class="btn btn-primary" style="background: linear-gradient(to right, #10b981, #059669); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);"><i class="fas fa-file-import"></i> Bulk Import</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,629 @@
+{% extends "base.html" %}
+
+{% block title %}Seating Plan: {{ test.title }}{% endblock %}
+
+{% block header_actions %}
+<div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <button id="save-seating-btn" class="btn btn-primary" style="background: var(--primary); display: none;">Save Manual Changes</button>
+    <div class="dropdown">
+        <button class="btn btn-primary" style="background: var(--secondary);">Download Teacher Copy</button>
+        <div class="dropdown-content">
+            <a href="{{ url_for('report_teacher_copy', id=test.id) }}">Printable Report (Grid + List)</a>
+            <a href="{{ url_for('report_consolidated', id=test.id) }}">Consolidated Block Summary</a>
+            <a href="{{ url_for('export_seating', test_id=test.id, format='excel', type='teacher') }}">Excel (.xlsx)</a>
+            <a href="{{ url_for('export_seating', test_id=test.id, format='pdf', type='teacher') }}">PDF (.pdf)</a>
+        </div>
+    </div>
+    <div class="dropdown">
+        <button class="btn btn-primary">Download Student Copy</button>
+        <div class="dropdown-content">
+            <a href="{{ url_for('export_seating', test_id=test.id, format='excel', type='student') }}">Excel (.xlsx)</a>
+            <a href="{{ url_for('export_seating', test_id=test.id, format='pdf', type='student') }}">PDF (.pdf)</a>
+        </div>
+    </div>
+    <button onclick="window.print()" class="btn btn-primary" style="background: #4ade80;">Print Labels</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<style>
+.dropdown { position: relative; display: inline-block; }
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #1e1b4b;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1000;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    margin-top: 5px;
+}
+.dropdown-content a {
+    color: white;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    font-size: 0.9rem;
+}
+.dropdown-content a:hover { background-color: rgba(255,255,255,0.1); border-radius: 12px; }
+.dropdown:hover .dropdown-content { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 2rem;">
+        <div>
+            <p style="color: var(--text-muted)">Exam Date</p>
+            <h3>{{ test.date.strftime('%B %d, %Y') }}</h3>
+        </div>
+        <div>
+            <p style="color: var(--text-muted)">Duration</p>
+            <h3>{{ test.duration }} Mins</h3>
+        </div>
+        <div>
+            <p style="color: var(--text-muted)">Total Rooms</p>
+            <h3>{{ detailed_rooms|length }}</h3>
+        </div>
+        <div>
+            <p style="color: var(--text-muted)">Paper Sets</p>
+            <h3>{{ test.paper_sets }}</h3>
+        </div>
+    </div>
+
+    <!-- Room-wise Grid Visualization -->
+    {% for item in detailed_rooms %}
+    <div class="room-container" style="margin-bottom: 4rem; padding-top: 2rem; border-top: 1px solid var(--glass-border);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem;">
+            <div>
+                <h2 style="color: var(--secondary); margin-bottom: 0.2rem;">{{ item.room.name }} - {{ item.room.section }}</h2>
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 0.5rem;">
+                    <i class="fas fa-user-tie" style="color: var(--text-muted); font-size: 0.8rem;"></i>
+                    <span style="font-size: 0.9rem; color: var(--text-muted);">Supervisor:</span>
+                    {% if item.supervisor %}
+                        <span style="background: rgba(99, 102, 241, 0.2); color: #818cf8; padding: 2px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(99, 102, 241, 0.3);">
+                            {{ item.supervisor.name }}
+                        </span>
+                    {% else %}
+                        <span style="background: rgba(248, 113, 113, 0.1); color: #f87171; padding: 2px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(248, 113, 113, 0.2);">
+                            Not Assigned
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div style="text-align: right; color: var(--text-muted); font-size: 0.9rem;">
+                <p>Layout: {{ item.room.rows }} x {{ item.room.columns }} ({{ item.room.bench_type|capitalize }})</p>
+                <p>Capacity: {{ item.room.capacity }}</p>
+            </div>
+        </div>
+
+        <div class="overflow-container">
+            <div class="classroom-grid" style="display: flex; flex-direction: column; gap: 20px; background: rgba(0,0,0,0.2); padding: 2rem; border-radius: 20px; border: 1px solid var(--glass-border); width: fit-content; min-width: 100%;">
+            {% set row_layout = item.room.get_row_layout() %}
+            {% set multiplier = 1 if item.room.bench_type == 'single' else 2 %}
+            {% set seat_counter = namespace(value=1) %}
+            
+            {% for count in row_layout %}
+                <div style="display: flex; gap: 20px; justify-content: flex-start; margin-bottom: 20px;">
+                {% for c in range(count) %}
+                    <div class="bench-visual {{ item.room.bench_type }}">
+                        {% for s in range(multiplier) %}
+                            {% set current_seat = seat_counter.value %}
+                            {% set arr = item.seats.get(current_seat) %}
+                            <div class="seat-spot" data-room-id="{{ item.room.id }}" data-seat-num="{{ current_seat }}">
+                                {% if arr %}
+                                    <div class="student-card occupied" data-student-id="{{ arr.student.id }}">
+                                        <button class="no-print remove-seat-btn btn-remove-student" data-arr-id="{{ arr.id }}" title="Remove Student">&times;</button>
+                                        <div class="seat-info">
+                                            <span class="seat-original-label">Seat {{ current_seat }}</span>
+                                            <div class="paper-set-badge" contenteditable="true" title="Edit Paper Set">{{ arr.paper_set }}</div>
+                                            <p class="student-name">{{ arr.student.name }}</p>
+                                            <p class="student-roll">{{ arr.student.roll_number }}</p>
+                                            <p class="student-class">{{ arr.student.classroom.name }}-{{ arr.student.classroom.section }}</p>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="student-card empty">
+                                        <div class="empty-seat">
+                                            <span class="seat-original-label">Seat {{ current_seat }}</span>
+                                            <button class="no-print assign-btn btn-show-assign" data-room-id="{{ item.room.id }}" data-seat-num="{{ current_seat }}">+ Assign</button>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            {% set seat_counter.value = seat_counter.value + 1 %}
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endfor %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const saveBtn = document.getElementById('save-seating-btn');
+    const spots = document.querySelectorAll('.seat-spot');
+    
+    // Global dragging across all rooms using shared group 'seating'
+    spots.forEach(spot => {
+        new Sortable(spot, {
+            group: 'seating',
+            animation: 300,
+            ghostClass: 'ghost-card',
+            onAdd: function (evt) {
+                // Manual Swap Logic
+                // evt.to: the destination container (this spot)
+                // evt.from: the source container
+                // evt.item: the card that was just moved here
+                
+                const dest = evt.to;
+                const source = evt.from;
+                const newCard = evt.item;
+                
+                // If there was already a card here, move it back to the source spot
+                const existingCards = dest.querySelectorAll('.student-card');
+                if (existingCards.length > 1) {
+                    const oldCard = Array.from(existingCards).find(c => c !== newCard);
+                    if (oldCard) {
+                        source.appendChild(oldCard);
+                    }
+                }
+                
+                saveBtn.style.display = 'block';
+                saveBtn.classList.add('pulse-animation');
+            },
+            onEnd: function (evt) {
+                // This covers moves within the same container (though there's only one child)
+                // and finishing moves between containers.
+                if (evt.to !== evt.from) {
+                    saveBtn.style.display = 'block';
+                    saveBtn.classList.add('pulse-animation');
+                }
+            }
+        });
+    });
+
+    // Handle manual paper set edits
+    document.querySelectorAll('.paper-set-badge').forEach(badge => {
+        badge.addEventListener('input', function() {
+            saveBtn.style.display = 'block';
+            saveBtn.classList.add('pulse-animation');
+        });
+        // Prevent Dragging when editing paper set
+        badge.addEventListener('mousedown', (e) => e.stopPropagation());
+    });
+
+    saveBtn.addEventListener('click', function() {
+        const changes = [];
+        document.querySelectorAll('.seat-spot').forEach(spot => {
+            const studentCard = spot.querySelector('.student-card.occupied');
+            if (studentCard) {
+                const paperSetBadge = studentCard.querySelector('.paper-set-badge');
+                changes.push({
+                    student_id: parseInt(studentCard.dataset.studentId),
+                    room_id: parseInt(spot.dataset.roomId),
+                    seat_number: parseInt(spot.dataset.seatNum),
+                    paper_set: paperSetBadge.innerText.trim()
+                });
+            }
+        });
+
+        saveBtn.disabled = true;
+        saveBtn.innerText = 'Saving...';
+
+        fetch("{{ url_for('save_seating', test_id=test.id) }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(changes)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Error saving changes: ' + data.message);
+                saveBtn.disabled = false;
+                saveBtn.innerText = 'Save Manual Changes';
+            }
+        });
+    });
+});
+</script>
+
+<style>
+    .student-card {
+        width: 100%;
+        height: 100%;
+        cursor: grab;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+    .student-card:active { cursor: grabbing; }
+    .student-card.occupied {
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        box-shadow: 0 0 15px rgba(99, 102, 241, 0.1);
+        min-height: 90px;
+    }
+    .student-card.empty {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px dashed rgba(255, 255, 255, 0.1);
+        opacity: 0.5;
+    }
+    .ghost-card {
+        opacity: 0.4;
+        background: var(--secondary) !important;
+    }
+    .swap-highlight {
+        background: rgba(255, 193, 7, 0.2) !important;
+        border: 2px dashed var(--secondary) !important;
+    }
+    .pulse-animation {
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+        70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+    }
+    .bench-visual {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 10px;
+        display: flex;
+        gap: 10px;
+        min-height: 100px;
+        transition: transform 0.3s ease, border-color 0.3s ease;
+    }
+    .bench-visual:hover {
+        transform: translateY(-5px);
+        border-color: var(--primary);
+        background: rgba(255, 255, 255, 0.05);
+    }
+    .seat-spot {
+        flex: 1;
+        border-radius: 8px;
+        position: relative;
+        min-height: 80px;
+        display: flex;
+        /* Ensure the spot maintains its size even if empty */
+    }
+    .seat-info {
+        width: 100%;
+        text-align: center;
+        position: relative;
+        padding: 5px;
+    }
+    .overflow-container {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        padding-bottom: 2.5rem;
+        margin: 0;
+        position: relative;
+        cursor: grab;
+        border-radius: 12px;
+    }
+    
+    .overflow-container:active { cursor: grabbing; }
+
+    /* High-Contrast Premium Scrollbar */
+    .overflow-container::-webkit-scrollbar {
+        height: 12px;
+    }
+    .overflow-container::-webkit-scrollbar-track {
+        background: rgba(15, 23, 42, 0.8);
+        border-radius: 20px;
+        margin: 0 40px;
+    }
+    .overflow-container::-webkit-scrollbar-thumb {
+        background: linear-gradient(to right, #818cf8, #c084fc, #f472b6);
+        border-radius: 20px;
+        border: 3px solid #0f172a;
+    }
+    .overflow-container::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(to right, #6366f1, #a855f7, #ec4899);
+    }
+
+    .seat-original-label {
+        font-size: 0.5rem;
+        color: var(--text-muted);
+        position: absolute;
+        bottom: 6px;
+        right: 8px;
+        opacity: 0.5;
+        font-weight: 700;
+        pointer-events: none;
+        z-index: 5;
+    }
+    .paper-set-badge {
+        position: absolute;
+        top: -10px;
+        right: -10px;
+        background: linear-gradient(135deg, var(--secondary), #f472b6);
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 0.8rem;
+        box-shadow: 0 4px 10px rgba(236, 72, 153, 0.5);
+        z-index: 10;
+        border: 2px solid #1e1b4b;
+    }
+    .student-name {
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin: 5px 0 2px 0;
+        color: white;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 90%;
+    }
+    .student-roll {
+        font-size: 0.7rem;
+        color: var(--secondary);
+        font-weight: 700;
+        margin: 0;
+    }
+    .student-class {
+        font-size: 0.6rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+    .empty-seat {
+        text-align: center;
+        color: var(--text-muted);
+        width: 100%;
+    }
+    .empty-seat span { font-size: 0.7rem; }
+    .empty-seat small { display: block; font-size: 0.6rem; opacity: 0.5; }
+
+    /* Print optimization for grid */
+    @media print {
+        #save-seating-btn, .dropdown { display: none !important; }
+        .classroom-grid {
+            display: grid !important;
+            gap: 10px !important;
+            background: none !important;
+            border: none !important;
+            padding: 0 !important;
+        }
+        .bench-visual {
+            background: white !important;
+            border: 1px solid #ddd !important;
+            color: black !important;
+            transform: none !important;
+        }
+        .student-card.occupied {
+            background: #f8f9fa !important;
+            border: 1px solid #eee !important;
+        }
+        .student-name, .student-roll, .student-class {
+            color: black !important;
+        }
+        .paper-set-badge {
+            background: #eee !important;
+            color: black !important;
+            border: 1px solid #ccc !important;
+        }
+    }
+</style>
+
+<style>
+@media print {
+    .sidebar { display: none; }
+    .main-content { margin-left: 0; padding: 0; }
+    .header_actions { display: none; }
+    .card { box-shadow: none; border: 1px solid #ccc; background: white; color: black; }
+    body { background: white; color: black; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .btn { display: none; }
+}
+</style>
+    <!-- Add Student Modal -->
+    <div id="assignModal" class="modal-overlay no-print" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(5px);">
+        <div class="modal-content" style="background: var(--card-bg); border: 1px solid var(--glass-border); padding: 2rem; border-radius: 20px; width: 450px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+            <h3 style="color: white; margin-top:0; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-user-plus" style="color: var(--primary);"></i>
+                Assign Student
+            </h3>
+            <p id="modalInfo" style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem;"></p>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display: block; color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Selected Student</label>
+                <select id="studentList" style="width:100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: white; padding: 12px; border-radius: 10px; outline: none;">
+                    <option value="">-- Loading... --</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 2rem;">
+                <label style="display: block; color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Question Paper Set</label>
+                <div style="display: flex; gap: 10px;">
+                    {% for s in ['A', 'B', 'C', 'D'] %}
+                        <label style="flex: 1; cursor: pointer;">
+                            <input type="radio" name="modal_set" value="{{ s }}" class="set-radio" {% if s == 'A' %}checked{% endif %} style="display: none;">
+                            <div class="set-option set-{{ s }}" style="text-align: center; padding: 10px; border-radius: 8px; border: 1px solid transparent; transition: all 0.3s; font-weight: 700;">{{ s }}</div>
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 15px; justify-content: flex-end;">
+                <button onclick="closeModal()" style="padding: 10px 20px; border-radius: 10px; border: 1px solid var(--glass-border); background: transparent; color: white; cursor: pointer;">Cancel</button>
+                <button onclick="confirmAssignment()" style="padding: 10px 25px; border-radius: 10px; background: var(--primary); color: white; border: none; cursor: pointer; font-weight: 600; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);">Assign Student</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .remove-seat-btn {
+            position: absolute; 
+            top: -10px; 
+            right: -10px; 
+            background: #1e1b4b; 
+            color: #f87171; 
+            border: 2px solid rgba(248, 113, 113, 0.4); 
+            border-radius: 50%; 
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer; 
+            font-size: 16px; 
+            transition: all 0.2s; 
+            z-index: 12;
+            padding: 0;
+            line-height: 1;
+        }
+        .remove-seat-btn:hover { 
+            background: #ef4444; 
+            color: white; 
+            transform: scale(1.1);
+            border-color: white;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+        }
+        .paper-set-badge {
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            background: linear-gradient(135deg, var(--secondary), #f472b6);
+            color: white;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 10px rgba(236, 72, 153, 0.5);
+            z-index: 11;
+            border: 2px solid #1e1b4b;
+        }
+        .assign-btn {
+            background: rgba(99, 102, 241, 0.2); 
+            color: #818cf8; 
+            border: 1px solid rgba(99, 102, 241, 0.4); 
+            padding: 6px 10px; 
+            border-radius: 8px; 
+            font-size: 0.7rem; 
+            margin-top: 10px; 
+            cursor: pointer; 
+            width: 80%; 
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        .assign-btn:hover { 
+            background: var(--primary); 
+            color: white;
+            border-color: transparent;
+            transform: translateY(-2px); 
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+        .set-radio:checked + .set-option { border-color: white; box-shadow: 0 0 15px rgba(255,255,255,0.2); transform: scale(1.05); }
+        
+        .student-card.empty {
+            border: 2px dashed rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.01);
+        }
+        .student-card.empty:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            background: rgba(99, 102, 241, 0.05);
+        }
+    </style>
+
+    <script>
+        let currentAssignRoom = null;
+        let currentAssignSeat = null;
+
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('btn-remove-student')) {
+                removeStudent(e.target.dataset.arrId);
+            }
+            if (e.target.classList.contains('btn-show-assign')) {
+                showAddModal(e.target.dataset.roomId, e.target.dataset.seatNum);
+            }
+        });
+
+        async function removeStudent(arrId) {
+            if (!confirm('Are you sure you want to remove this student from this seat?')) return;
+            try {
+                const response = await fetch(`/tests/{{ test.id }}/seating/delete/${arrId}`, { method: 'POST' });
+                const result = await response.json();
+                if (result.success) location.reload();
+                else alert(result.message);
+            } catch (e) { alert('Error removing student'); }
+        }
+
+        async function showAddModal(roomId, seatNum) {
+            currentAssignRoom = roomId;
+            currentAssignSeat = seatNum;
+            document.getElementById('modalInfo').innerText = `Room ID: ${roomId} | Seat Number: ${seatNum}`;
+            document.getElementById('assignModal').style.display = 'flex';
+            
+            // Load unassigned students
+            const resp = await fetch(`/tests/{{ test.id }}/unassigned_students`);
+            const students = await resp.json();
+            const select = document.getElementById('studentList');
+            select.innerHTML = '<option value="">-- Select a Student --</option>';
+            students.forEach(s => {
+                const option = document.createElement('option');
+                option.value = s.id;
+                option.textContent = `${s.name} (${s.roll_number}) - ${s.class_name}`;
+                select.appendChild(option);
+            });
+        }
+
+        function closeModal() { document.getElementById('assignModal').style.display = 'none'; }
+
+        async function confirmAssignment() {
+            const studentId = document.getElementById('studentList').value;
+            const paperSet = document.querySelector('input[name="modal_set"]:checked').value;
+            if (!studentId) { alert('Please select a student'); return; }
+
+            try {
+                const response = await fetch(`/tests/{{ test.id }}/seating/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        student_id: parseInt(studentId),
+                        room_id: parseInt(currentAssignRoom),
+                        seat_number: parseInt(currentAssignSeat),
+                        paper_set: paperSet
+                    })
+                });
+                const result = await response.json();
+                if (result.success) location.reload();
+                else alert(result.message);
+            } catch (e) { alert('Error assigning student'); }
+        }
+
+        // Shift + Mouse Scroll for horizontal scrolling
+        const containers = document.querySelectorAll('.overflow-container');
+        containers.forEach(container => {
+            container.addEventListener('wheel', (evt) => {
+                if (evt.shiftKey) {
+                    evt.preventDefault();
+                    container.scrollLeft += evt.deltaY;
+                }
+            }, { passive: false });
+        });
+    </script>
+{% endblock %}

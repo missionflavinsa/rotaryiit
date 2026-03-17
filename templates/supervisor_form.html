@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}{{ action }} Supervisor{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <form method="POST">
+        <div class="form-group">
+            <label for="name">Supervisor Name</label>
+            <input type="text" id="name" name="name" required value="{{ supervisor.name if supervisor else '' }}" placeholder="Dr. John Doe">
+        </div>
+        <div class="form-group">
+            <label for="email">Email (Optional)</label>
+            <input type="email" id="email" name="email" value="{{ supervisor.email if supervisor else '' }}" placeholder="john.doe@example.com">
+        </div>
+        <div class="form-group">
+            <label for="phone">Phone Number (Optional)</label>
+            <input type="text" id="phone" name="phone" value="{{ supervisor.phone if supervisor else '' }}" placeholder="+1234567890">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Save Supervisor</button>
+        <a href="{{ url_for('list_supervisors') }}" style="display: block; text-align: center; margin-top: 1rem; color: var(--text-muted); text-decoration: none;">Cancel</a>
+    </form>
+</div>
+{% endblock %}

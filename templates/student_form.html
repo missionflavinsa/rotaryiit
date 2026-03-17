@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}{{ action }} Student{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <form method="POST">
+        <div class="form-group">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" name="name" required value="{{ student.name if student else '' }}" placeholder="Student name">
+        </div>
+        <div class="form-group">
+            <label for="roll_number">Roll Number</label>
+            <input type="text" id="roll_number" name="roll_number" required value="{{ student.roll_number if student else '' }}" placeholder="Unique ID">
+        </div>
+        <div class="form-group">
+            <label for="class_id">Allocate to Class</label>
+            <select id="class_id" name="class_id" required>
+                {% for class in classes %}
+                <option value="{{ class.id }}" {% if student and student.class_id == class.id %}selected{% endif %}>{{ class.name }} (Section {{ class.section }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Save Student</button>
+        <a href="{{ url_for('list_students') }}" style="color: var(--text-muted); margin-left: 1rem; text-decoration: none;">Cancel</a>
+    </form>
+</div>
+{% endblock %}

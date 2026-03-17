@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Create New Exam{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 800px; margin: 0 auto;">
+    <form method="POST">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="form-group">
+                <label for="title">Exam Title</label>
+                <input type="text" id="title" name="title" required value="{{ test.title if test else '' }}" placeholder="Mathematics Midterm">
+            </div>
+            <div class="form-group">
+                <label for="duration">Duration (Minutes)</label>
+                <input type="number" id="duration" name="duration" value="{{ test.duration if test else '180' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="date">Exam Date</label>
+                <input type="date" id="date" name="date" value="{{ test.date.strftime('%Y-%m-%d') if test and test.date else '' }}" required>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="paper_sets">Question Paper Sets (comma separated)</label>
+            <input type="text" id="paper_sets" name="paper_sets" value="{{ test.paper_sets if test else 'A,B,C,D' }}" required>
+        </div>
+        
+        <div class="card" style="margin-bottom: 2rem; background: rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-around; text-align: center;">
+                <div>
+                    <p style="color: var(--text-muted)">Needed Capacity</p>
+                    <h3 id="needed-count">0</h3>
+                </div>
+                <div>
+                    <p style="color: var(--text-muted)">Available Capacity</p>
+                    <h3 id="available-count">0</h3>
+                </div>
+                <div>
+                    <p style="color: var(--text-muted)">Status</p>
+                    <h3 id="capacity-status" style="color: #4ade80">Ready</h3>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="margin-bottom: 1rem; color: var(--secondary);">Step 1: Select Target Classes (Students)</h3>
+        <div class="form-group">
+                {% set target_ids = (test.target_classes_json|from_json) if test else [] %}
+                {% for class in classes %}
+                {% set class_id_str = class.id|string %}
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" name="target_classes" value="{{ class.id }}" 
+                           data-students="{{ class.students|length }}"
+                           {% if class_id_str in target_ids %}checked{% endif %}
+                           onchange="updateCapacity()" style="width: auto;">
+                    <span style="font-size: 0.9rem;">{{ class.name }} - {{ class.section }} ({{ class.students|length }})</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <h3 style="margin-bottom: 1rem; color: var(--secondary); margin-top: 2rem;">Step 2: Assign Exam Blocks & Supervisors</h3>
+        <div class="form-group">
+            <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+                {% set block_data = (test.exam_blocks_json|from_json) if test else [] %}
+                {% set block_room_ids = [] %}
+                {% set room_to_sup = {} %}
+                {% for b in block_data %}
+                    {% set _ = block_room_ids.append(b.room_id) %}
+                    {% set _ = room_to_sup.update({b.room_id|string: b.supervisor_id}) %}
+                {% endfor %}
+
+                {% for room in classes %}
+                <div style="display: grid; grid-template-columns: 1fr 2fr; align-items: center; gap: 15px; background: rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 12px; border: 1px solid var(--glass-border);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="room_ids" value="{{ room.id }}" 
+                               data-capacity="{{ room.capacity }}" 
+                               {% if room.id in block_room_ids %}checked{% endif %}
+                               onchange="updateCapacity()" style="width: auto;">
+                        <span style="font-weight: 600;">{{ room.name }} - {{ room.section }}</span>
+                        <span style="color: var(--text-muted); font-size: 0.8rem;">(Cap: {{ room.capacity }})</span>
+                    </div>
+                    <div>
+                        <select name="supervisor_{{ room.id }}" style="background: rgba(0,0,0,0.3); padding: 0.5rem;">
+                            <option value="">Select Supervisor</option>
+                            {% for supervisor in supervisors %}
+                            <option value="{{ supervisor.id }}" {% if room_to_sup[room.id|string] == supervisor.id %}selected{% endif %}>{{ supervisor.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <script>
+        function updateCapacity() {
+            let needed = 0;
+            let available = 0;
+            document.querySelectorAll('input[name="target_classes"]:checked').forEach(cb => {
+                needed += parseInt(cb.getAttribute('data-students'));
+            });
+            document.querySelectorAll('input[name="room_ids"]:checked').forEach(cb => {
+                available += parseInt(cb.getAttribute('data-capacity'));
+            });
+            document.getElementById('needed-count').innerText = needed;
+            document.getElementById('available-count').innerText = available;
+            
+            const statusEl = document.getElementById('capacity-status');
+            if (needed > available && available > 0) {
+                statusEl.innerText = "Over Capacity!";
+                statusEl.style.color = "#f87171";
+            } else if (available > 0) {
+                statusEl.innerText = "Sufficient";
+                statusEl.style.color = "#4ade80";
+            } else {
+                statusEl.innerText = "Ready";
+                statusEl.style.color = "white";
+            }
+        }
+        document.addEventListener('DOMContentLoaded', updateCapacity);
+        </script>
+
+        <div style="margin-top: 3rem; display: flex; align-items: center; gap: 2rem;">
+            <button type="submit" class="btn btn-primary" style="flex: 1;">Create Exam & Assign Blocks</button>
+            <a href="{{ url_for('list_tests') }}" style="color: var(--text-muted); text-decoration: none;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

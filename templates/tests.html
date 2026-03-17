@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Exams & Tests{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('add_test') }}" class="btn btn-primary">Create New Test</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Test Title</th>
+                <th>Date</th>
+                <th>Sets</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for test in tests %}
+            <tr>
+                <td>{{ test.title }}</td>
+                <td>{{ test.date.strftime('%Y-%m-%d') }}</td>
+                <td>{{ test.paper_sets }}</td>
+                <td>
+                    {% if test.arrangements|length > 0 %}
+                    <span style="color: #4ade80">Arrangement Generated</span>
+                    {% else %}
+                    <span style="color: #fbbf24">Pending</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display: flex; gap: 5px;">
+                        <a href="{{ url_for('generate_seating', test_id=test.id) }}" class="btn btn-primary" style="padding: 0.4rem 0.6rem; font-size: 0.75rem;">Generate</a>
+                        {% if test.arrangements|length > 0 %}
+                        <a href="{{ url_for('view_seating', test_id=test.id) }}" class="btn" style="padding: 0.4rem 0.6rem; font-size: 0.75rem; background: var(--secondary); color: white;">View</a>
+                        {% endif %}
+                        <a href="{{ url_for('edit_test', id=test.id) }}" style="color: var(--primary); align-self: center; margin: 0 5px;" title="Edit Test"><i class="fas fa-edit"></i></a>
+                        <a href="{{ url_for('delete_test', id=test.id) }}" style="color: #ef4444; align-self: center;" title="Delete Test" onclick="return confirm('Delete this test and all its seating arrangements?')"><i class="fas fa-trash"></i></a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not tests %}
+            <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-muted)">No exams created yet.</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

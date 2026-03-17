@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Consolidated Block Summary{% endblock %}
+
+{% block header_actions %}
+<button onclick="window.print()" class="btn btn-primary" style="background: #4ade80;">Print Summary</button>
+<a href="{{ url_for('export_consolidated_excel', id=test.id) }}" class="btn btn-primary" style="background: #10b981;">Download Excel</a>
+<a href="{{ url_for('export_consolidated_pdf', id=test.id) }}" class="btn btn-primary" style="background: #ef4444;">Download PDF</a>
+<a href="{{ url_for('view_seating', test_id=test.id) }}" class="btn btn-primary" style="background: var(--text-muted); opacity: 0.8;">Back to Seating View</a>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="background: white; color: #1e1b4b; padding: 40px; border-radius: 0; box-shadow: none; border: 1px solid #e2e8f0;">
+    <div class="report-header" style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 1.5rem; margin-bottom: 2.5rem;">
+        <h1 style="color: black; font-size: 2rem; margin: 0;">{{ test.title }}</h1>
+        <h2 style="color: black; font-size: 1.5rem; margin: 10px 0;">Consolidated Block-wise Seating Summary</h2>
+        <p style="font-size: 1rem; color: #333;">Date: {{ test.date.strftime('%B %d, %Y') }} | Duration: {{ test.duration }} Mins</p>
+    </div>
+
+    <div class="summary-table-container" style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.95rem; border: 2px solid #000; color: black;">
+            <thead>
+                <tr style="background: white; color: black; border-bottom: 2px solid #000;">
+                    <th style="border: 1px solid #000; padding: 12px; text-align: left; min-width: 150px; color: black !important; font-weight: 800;">Block / Room</th>
+                    {% for cname in class_names %}
+                        <th style="border: 1px solid #000; padding: 12px; text-align: center; color: black !important; font-weight: 800;">{{ cname }}</th>
+                    {% endfor %}
+                    <th style="border: 1px solid #000; padding: 12px; text-align: center; font-weight: 800; color: black !important;">Block Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for room in rooms %}
+                <tr style="background: white;">
+                    <td style="border: 1px solid #000; padding: 12px; font-weight: 700;">{{ room.name }} {{ room.section }}</td>
+                    {% for cname in class_names %}
+                        {% set count = matrix[room.id][cname] %}
+                        <td class="cell-border count-cell {{ 'count-zero' if count == 0 else 'count-active' }}">
+                            {{ count if count > 0 else '-' }}
+                        </td>
+                    {% endfor %}
+                    <td style="border: 1px solid #000; padding: 12px; text-align: center; font-weight: 800;">
+                        {{ room_totals[room.id] }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background: white; border-top: 2px solid #000;">
+                    <td style="border: 1px solid #000; padding: 12px; font-weight: 800; text-align: right;">Class Totals:</td>
+                    {% for cname in class_names %}
+                        <td style="border: 1px solid #000; padding: 12px; text-align: center; font-weight: 800;">
+                            {{ class_totals[cname] }}
+                        </td>
+                    {% endfor %}
+                    <td style="border: 1px solid #000; padding: 12px; text-align: center; font-weight: 900; font-size: 1.1rem;">
+                        {{ class_totals.values()|sum }}
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <div class="report-signatures" style="margin-top: 3rem; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div style="text-align: center; min-width: 200px;">
+            <div style="border-top: 1px solid #333; padding-top: 10px; font-weight: 600;">Exam Coordinator</div>
+        </div>
+        <div style="text-align: center; min-width: 200px;">
+            <div style="border-top: 1px solid #333; padding-top: 10px; font-weight: 600;">Principal Signature</div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @media print {
+        .btn, .sidebar, .header-container, .no-print, .mobile-toggle, .report-header, .report-signatures { display: none !important; }
+        .main-content { margin-left: 0 !important; padding: 0 !important; width: 100% !important; display: block !important; }
+        .container { display: block !important; }
+        .card { border: none !important; padding: 0 !important; margin: 0 !important; background: white !important; display: block !important; }
+        .summary-table-container { overflow: visible !important; display: block !important; }
+        body { background: white !important; color: black !important; display: block !important; height: auto !important; min-height: 0 !important; }
+        table { border: 2px solid black !important; width: 100% !important; border-collapse: collapse !important; table-layout: auto !important; }
+        th, td { border: 1px solid black !important; color: black !important; page-break-inside: avoid !important; }
+        th { background: white !important; color: black !important; font-weight: 900 !important; }
+        tfoot tr { background: white !important; font-weight: 900 !important; }
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+    
+    table tr:hover td {
+        background: rgba(0, 0, 0, 0.02);
+    }
+    .cell-border { border: 1px solid #000; padding: 12px; }
+    .count-cell { text-align: center; color: black; }
+    .count-zero { opacity: 0.5; }
+    .count-active { font-weight: 600; }
+</style>
+{% endblock %}
