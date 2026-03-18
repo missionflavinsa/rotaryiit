@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Rotary IIT Teacher",
+    "slug": "rotary-iit-teacher",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0a0620"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.rotaryiit.teacher"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0620"
+      },
+      "package": "com.rotaryiit.teacher"
+    }
+  }
+}

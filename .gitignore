@@ -9,3 +9,6 @@ uploads/
 .ipynb_checkpoints/
 .vscode/
 .idea/
+mobile-app/node_modules/
+mobile-app/.expo/
+serviceAccountKey.json

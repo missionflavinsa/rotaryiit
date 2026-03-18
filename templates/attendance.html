@@ -3,6 +3,15 @@
 {% block title %}Attendance: {{ test.title }}{% endblock %}
 
 {% block content %}
+<style>
+    select, select option {
+        background-color: #1a1340 !important;
+        color: #fff !important;
+    }
+    select option:checked {
+        background-color: #7c3aed !important;
+    }
+</style>
 <div class="card">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
         <div>
@@ -38,6 +47,38 @@
         </div>
     </div>
 
+    <!-- Search & Filter Bar -->
+    <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center;">
+        <div style="flex: 1; min-width: 200px; position: relative;">
+            <i class="fas fa-search" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+            <input type="text" id="searchInput" placeholder="Search by roll number or name..."
+                style="width: 100%; padding: 12px 12px 12px 38px; background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; color: #fff; font-size: 0.9rem; outline: none;"
+                oninput="filterAttendance()">
+        </div>
+        <select id="classFilter" onchange="filterAttendance()"
+            style="padding: 12px 16px; background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; color: #fff; font-size: 0.9rem; outline: none; min-width: 160px;">
+            <option value="">All Classes</option>
+            {% set all_classes = [] %}
+            {% for room_name, records in room_records.items() %}
+                {% for record in records %}
+                    {% if record.student.classroom not in all_classes %}
+                        {% if all_classes.append(record.student.classroom) %}{% endif %}
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+            {% for cls in all_classes|sort %}
+            <option value="{{ cls }}">{{ cls }}</option>
+            {% endfor %}
+        </select>
+        <select id="statusFilter" onchange="filterAttendance()"
+            style="padding: 12px 16px; background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; color: #fff; font-size: 0.9rem; outline: none; min-width: 140px;">
+            <option value="">All Status</option>
+            <option value="present">Present</option>
+            <option value="absent">Absent</option>
+            <option value="unmarked">Pending</option>
+        </select>
+    </div>
+
     {% if not room_records %}
     <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
         <i class="fas fa-clipboard-list" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
@@ -47,7 +88,7 @@
 
     <!-- Room-wise Attendance Tables -->
     {% for room_name, records in room_records.items() %}
-    <div style="margin-bottom: 3rem;">
+    <div class="room-section" data-room="{{ room_name }}" style="margin-bottom: 3rem;">
         <h3 style="color: var(--secondary); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--glass-border);">
             <i class="fas fa-door-open" style="margin-right: 0.5rem;"></i>{{ room_name }}
             <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal; margin-left: 1rem;">
@@ -69,7 +110,12 @@
                 </thead>
                 <tbody>
                     {% for record in records|sort(attribute='student.roll_number') %}
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <tr class="att-row" 
+                        data-roll="{{ record.student.roll_number|lower }}" 
+                        data-name="{{ record.student.name|lower }}" 
+                        data-class="{{ record.student.classroom }}"
+                        data-status="{{ record.status }}"
+                        style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                         <td style="padding: 10px; font-size: 0.9rem;">{{ loop.index }}</td>
                         <td style="padding: 10px; font-size: 0.9rem; font-weight: 600;">{{ record.student.roll_number }}</td>
                         <td style="padding: 10px; font-size: 0.9rem;">{{ record.student.name }}</td>
@@ -103,4 +149,48 @@
     </div>
     {% endfor %}
 </div>
+
+<script>
+function filterAttendance() {
+    const search = document.getElementById('searchInput').value.toLowerCase().trim();
+    const classFilter = document.getElementById('classFilter').value;
+    const statusFilter = document.getElementById('statusFilter').value;
+    
+    document.querySelectorAll('.att-row').forEach(row => {
+        const roll = row.dataset.roll;
+        const name = row.dataset.name;
+        const cls = row.dataset.class;
+        const status = row.dataset.status;
+        
+        let show = true;
+        
+        // Search filter (roll number or name)
+        if (search && !roll.includes(search) && !name.includes(search)) {
+            show = false;
+        }
+        
+        // Class filter
+        if (classFilter && cls !== classFilter) {
+            show = false;
+        }
+        
+        // Status filter
+        if (statusFilter && status !== statusFilter) {
+            show = false;
+        }
+        
+        row.style.display = show ? '' : 'none';
+    });
+    
+    // Hide room sections with no visible rows
+    document.querySelectorAll('.room-section').forEach(section => {
+        const visibleRows = section.querySelectorAll('.att-row[style=""], .att-row:not([style*="none"])');
+        let hasVisible = false;
+        section.querySelectorAll('.att-row').forEach(r => {
+            if (r.style.display !== 'none') hasVisible = true;
+        });
+        section.style.display = hasVisible ? '' : 'none';
+    });
+}
+</script>
 {% endblock %}
