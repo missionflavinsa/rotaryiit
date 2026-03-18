@@ -6,9 +6,10 @@
 <div class="card" style="max-width: 600px; margin: 0 auto;">
     <p style="color: var(--text-muted); margin-bottom: 2rem;">Upload Excel or CSV files to bulk import classes or students. Use the templates below to ensure the correct format.</p>
 
-    <div style="display: flex; gap: 1rem; margin-bottom: 3rem;">
+    <div style="display: flex; gap: 1rem; margin-bottom: 3rem; flex-wrap: wrap;">
         <a href="{{ url_for('download_template', type='classes') }}" class="btn btn-primary" style="background: rgba(255, 255, 255, 0.1); border: 1px solid var(--glass-border); box-shadow: none;">Download Class Template</a>
         <a href="{{ url_for('download_template', type='students') }}" class="btn btn-primary" style="background: rgba(255, 255, 255, 0.1); border: 1px solid var(--glass-border); box-shadow: none;">Download Student Template</a>
+        <a href="{{ url_for('download_template', type='supervisors') }}" class="btn btn-primary" style="background: rgba(255, 255, 255, 0.1); border: 1px solid var(--glass-border); box-shadow: none;">Download Supervisor Template</a>
     </div>
 
     <form method="POST" enctype="multipart/form-data">
@@ -17,6 +18,7 @@
             <select id="type" name="type" required>
                 <option value="classes">Classes & Sections</option>
                 <option value="students">Students List</option>
+                <option value="supervisors">Supervisors List</option>
             </select>
         </div>
         <div class="form-group">

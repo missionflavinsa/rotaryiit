@@ -10,18 +10,37 @@
         <div class="dropdown-content">
             <a href="{{ url_for('report_teacher_copy', id=test.id) }}">Printable Report (Grid + List)</a>
             <a href="{{ url_for('report_consolidated', id=test.id) }}">Consolidated Block Summary</a>
-            <a href="{{ url_for('export_seating', test_id=test.id, format='excel', type='teacher') }}">Excel (.xlsx)</a>
-            <a href="{{ url_for('export_seating', test_id=test.id, format='pdf', type='teacher') }}">PDF (.pdf)</a>
+            <a href="{{ url_for('export_seating', test_id=test.id, format='excel', report_type='teacher') }}">Excel (.xlsx)</a>
+            <a href="{{ url_for('export_seating', test_id=test.id, format='pdf', report_type='teacher') }}">PDF (.pdf)</a>
         </div>
     </div>
     <div class="dropdown">
         <button class="btn btn-primary">Download Student Copy</button>
         <div class="dropdown-content">
-            <a href="{{ url_for('export_seating', test_id=test.id, format='excel', type='student') }}">Excel (.xlsx)</a>
-            <a href="{{ url_for('export_seating', test_id=test.id, format='pdf', type='student') }}">PDF (.pdf)</a>
+            <a href="{{ url_for('export_seating', test_id=test.id, format='excel', report_type='student') }}">Excel (.xlsx)</a>
+            <a href="{{ url_for('export_seating', test_id=test.id, format='pdf', report_type='student') }}">PDF (.pdf)</a>
+        </div>
+    </div>
+    <div class="dropdown">
+        <button class="btn btn-primary" style="background: var(--accent);">Download by Class</button>
+        <div class="dropdown-content" style="min-width: 250px;">
+            {% for tc in test_classes %}
+            <div style="padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); font-size: 0.8rem; font-weight: bold;">
+                {{ tc.name }} {{ tc.section }}
+            </div>
+            <a href="{{ url_for('export_seating', test_id=test.id, format='excel', report_type='student', class_id=tc.id) }}">
+                <i class="fas fa-file-excel" style="margin-right: 8px;"></i> Excel (.xlsx)
+            </a>
+            <a href="{{ url_for('export_seating', test_id=test.id, format='pdf', report_type='student', class_id=tc.id) }}">
+                <i class="fas fa-file-pdf" style="margin-right: 8px;"></i> PDF (.pdf)
+            </a>
+            {% endfor %}
         </div>
     </div>
     <button onclick="window.print()" class="btn btn-primary" style="background: #4ade80;">Print Labels</button>
+    <a href="{{ url_for('view_attendance', id=test.id) }}" class="btn btn-primary" style="background: var(--primary);">
+        <i class="fas fa-clipboard-check"></i> Attendance
+    </a>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -205,8 +224,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (studentCard) {
                 const paperSetBadge = studentCard.querySelector('.paper-set-badge');
                 changes.push({
-                    student_id: parseInt(studentCard.dataset.studentId),
-                    room_id: parseInt(spot.dataset.roomId),
+                    student_id: studentCard.dataset.studentId,
+                    room_id: spot.dataset.roomId,
                     seat_number: parseInt(spot.dataset.seatNum),
                     paper_set: paperSetBadge.innerText.trim()
                 });
@@ -603,8 +622,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        student_id: parseInt(studentId),
-                        room_id: parseInt(currentAssignRoom),
+                        student_id: studentId,
+                        room_id: currentAssignRoom,
                         seat_number: parseInt(currentAssignSeat),
                         paper_set: paperSet
                     })

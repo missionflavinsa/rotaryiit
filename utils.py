@@ -16,12 +16,13 @@ def generate_seating_plan(test, classrooms, students):
     """
     students_by_class = {}
     for student in students:
-        if student.class_id not in students_by_class:
-            students_by_class[student.class_id] = []
-        students_by_class[student.class_id].append(student)
+        cid = getattr(student, 'classroom_id', getattr(student, 'class_id', None))
+        if cid not in students_by_class:
+            students_by_class[cid] = []
+        students_by_class[cid].append(student)
     
-    for class_id in students_by_class:
-        random.shuffle(students_by_class[class_id])
+    for cid in students_by_class:
+        random.shuffle(students_by_class[cid])
     
     paper_sets = test.paper_sets.split(',')
     arrangements = []
@@ -35,50 +36,78 @@ def generate_seating_plan(test, classrooms, students):
             if students_by_class[cid]:
                 current_student_list.append(students_by_class[cid].pop(0))
 
-    student_idx = 0
     total_needed = len(current_student_list)
     
+    # Calculate total capacity and individual room capacities
+    total_capacity = 0
+    room_caps = []
     for room in classrooms:
+        cap = sum(room.get_row_layout()) * (1 if room.bench_type == 'single' else 2)
+        room_caps.append(cap)
+        total_capacity += cap
+        
+    if total_needed > total_capacity:
+        return None, f"Not enough capacity. Students: {total_needed}, Capacity: {total_capacity}"
+
+    # Distribute students proportionally across all assigned rooms
+    # This prevents packing the first room while others stay empty
+    students_in_rooms = []
+    remaining_students_count = total_needed
+    for i, cap in enumerate(room_caps):
+        if i == len(room_caps) - 1:
+            count = remaining_students_count
+        else:
+            # Proportional share, rounded to nearest student
+            count = round(total_needed * (cap / total_capacity))
+            count = min(count, remaining_students_count, cap)
+        students_in_rooms.append(count)
+        remaining_students_count -= count
+        
+    # Assign students to sparse indices within each room
+    arrangements = []
+    student_idx = 0
+    
+    for i, room in enumerate(classrooms):
+        num_to_assign = students_in_rooms[i]
+        if num_to_assign == 0: continue
+            
+        S = room_caps[i] # Total seats in room
+        N = num_to_assign # Students to place
+        
+        # Calculate sparse indices (0 to S-1)
+        if N >= S:
+            selected_indices = set(range(S))
+        else:
+            # Maximum spacing! Calculate a floating-point step
+            step = S / N
+            selected_indices = {int(k * step) for k in range(N)}
+            
         row_layout = room.get_row_layout()
         multiplier = 1 if room.bench_type == 'single' else 2
         
-        room_seat_counter = 1
+        abs_seat_idx = 0 # Logical index from 0 to S-1
         for r, benches_in_row in enumerate(row_layout):
             for c in range(benches_in_row):
                 for s in range(multiplier):
-                    if student_idx >= total_needed:
-                        # Continue filling empty seats if needed for reports? 
-                        # Actually student_idx is for students, we should stop if no more students.
-                        break
+                    if abs_seat_idx in selected_indices:
+                        if student_idx < total_needed:
+                            student = current_student_list[student_idx]
+                            
+                            # Standard Paper Set Pattern
+                            paper_sets = test.paper_sets.split(',')
+                            set_idx = (r * 3 + c * 2 + s) % len(paper_sets)
+                            paper_set = paper_sets[set_idx]
+                            
+                            arrangements.append({
+                                'test_id': test.id,
+                                'student_id': student.id,
+                                'room_id': room.id,
+                                'seat_number': abs_seat_idx + 1, # 1-indexed for display
+                                'paper_set': paper_set
+                            })
+                            student_idx += 1
+                    abs_seat_idx += 1
                     
-                    student = current_student_list[student_idx]
-                    seat_num = room_seat_counter
-                    
-                    # Strict Paper Set Assignment Pattern:
-                    # Using (r*3 + c*2 + s) still provides good diversity across rows.
-                    set_idx = (r * 3 + c * 2 + s) % len(paper_sets)
-                    paper_set = paper_sets[set_idx]
-                    
-                    arrangements.append({
-                        'test_id': test.id,
-                        'student_id': student.id,
-                        'room_id': room.id,
-                        'seat_number': seat_num,
-                        'paper_set': paper_set
-                    })
-                    student_idx += 1
-                    room_seat_counter += 1
-                if student_idx >= total_needed:
-                    break
-            if student_idx >= total_needed:
-                break
-        if student_idx >= total_needed:
-            # Note: We continue to next rooms if students remain, but we already handled that with total_needed
-            pass
-                
-    if student_idx < total_needed:
-        return None, f"Not enough capacity. Remaining students: {total_needed - student_idx}"
-
     return arrangements, None
 
 def export_to_excel(test, arrangements, report_type):
@@ -87,13 +116,19 @@ def export_to_excel(test, arrangements, report_type):
     
     if report_type == 'teacher':
         for arr in arrangements:
+            # Handle both objects and dictionaries
+            seat_num = getattr(arr, 'seat_number', arr.get('seat_number') if isinstance(arr, dict) else None)
+            student = getattr(arr, 'student', None)
+            paper_set = getattr(arr, 'paper_set', arr.get('paper_set') if isinstance(arr, dict) else 'A')
+            supervisor = getattr(arr, 'supervisor', None)
+            
             data.append({
-                'Seat #': arr.seat_number,
-                'Roll Number': arr.student.roll_number,
-                'Student Name': arr.student.name,
-                'Original Class': f"{arr.student.classroom.name}-{arr.student.classroom.section}",
-                'Paper Set': arr.paper_set,
-                'Supervisor': arr.supervisor.name if arr.supervisor else "None",
+                'Seat #': seat_num,
+                'Roll Number': student.roll_number if student else 'N/A',
+                'Student Name': student.name if student else 'Unknown',
+                'Original Class': f"{student.classroom.name}-{student.classroom.section}" if student and hasattr(student, 'classroom') else "N/A",
+                'Paper Set': paper_set,
+                'Supervisor': supervisor.name if supervisor and hasattr(supervisor, 'name') else "N/A",
                 'Duration': f"{test.duration} mins"
             })
     elif report_type == 'student':
@@ -156,8 +191,10 @@ def export_to_pdf(test, arrangements, report_type):
         summary_data = [['Class', 'Count']]
         counts = {}
         for arr in arrangements:
-            c_name = f"{arr.student.classroom.name}-{arr.student.classroom.section}"
-            counts[c_name] = counts.get(c_name, 0) + 1
+            student = getattr(arr, 'student', None)
+            if student and hasattr(student, 'classroom'):
+                c_name = f"{student.classroom.name}-{student.classroom.section}"
+                counts[c_name] = counts.get(c_name, 0) + 1
         
         for cname, count in sorted(counts.items()):
             summary_data.append([cname, count])
@@ -176,24 +213,39 @@ def export_to_pdf(test, arrangements, report_type):
 
         data.append(['Seat #', 'Roll No', 'Name', 'Class', 'Set', 'Supervisor'])
         for arr in arrangements:
+            seat_num = getattr(arr, 'seat_number', arr.get('seat_number') if isinstance(arr, dict) else 'N/A')
+            student = getattr(arr, 'student', None)
+            paper_set = getattr(arr, 'paper_set', arr.get('paper_set') if isinstance(arr, dict) else 'A')
+            supervisor = getattr(arr, 'supervisor', None)
+            
             data.append([
-                arr.seat_number, 
-                arr.student.roll_number, 
-                arr.student.name, 
-                f"{arr.student.classroom.name}-{arr.student.classroom.section}", 
-                arr.paper_set,
-                arr.supervisor.name if arr.supervisor else ""
+                seat_num, 
+                student.roll_number if student else 'N/A', 
+                student.name if student else 'Unknown', 
+                f"{student.classroom.name}-{student.classroom.section}" if student and hasattr(student, 'classroom') else "N/A", 
+                paper_set,
+                supervisor.name if supervisor and hasattr(supervisor, 'name') else "N/A"
             ])
     elif report_type == 'student':
         data.append(['Name', 'Roll No', 'Original Class', 'Exam Room', 'Seat #'])
-        arr_sorted = sorted(arrangements, key=lambda x: (x.student.classroom.name, x.student.classroom.section, x.student.name))
+        # Handle cases where arrangements might be dicts or objects
+        def get_student_sort_key(x):
+            s = getattr(x, 'student', None)
+            if not s: return ("", "", "")
+            return (getattr(s.classroom, 'name', ""), getattr(s.classroom, 'section', ""), getattr(s, 'name', ""))
+            
+        arr_sorted = sorted(arrangements, key=get_student_sort_key)
         for arr in arr_sorted:
+            student = getattr(arr, 'student', None)
+            room = getattr(arr, 'room', None)
+            seat_num = getattr(arr, 'seat_number', arr.get('seat_number') if isinstance(arr, dict) else 'N/A')
+            
             data.append([
-                arr.student.name, 
-                arr.student.roll_number, 
-                f"{arr.student.classroom.name}-{arr.student.classroom.section}", 
-                f"{arr.room.name}-{arr.room.section}", 
-                arr.seat_number
+                student.name if student else "Unknown", 
+                student.roll_number if student else "N/A", 
+                f"{student.classroom.name}-{student.classroom.section}" if student and hasattr(student, 'classroom') else "N/A", 
+                f"{room.name}-{room.section}" if room and hasattr(room, 'name') else "N/A", 
+                seat_num
             ])
     else:
         data.append(['Notice', 'No data available for this report type'])
@@ -221,11 +273,16 @@ def export_consolidated_excel(test, rooms, class_names, matrix, room_totals, cla
     # Create the matrix data for DataFrame
     rows = []
     for room in rooms:
-        row = {'Block / Room': f"{room.name} {room.section}"}
+        rid = str(getattr(room, 'id', ''))
+        row = {'Block / Room': f"{getattr(room, 'name', '')} {getattr(room, 'section', '')}"}
         for cname in class_names:
-            count = matrix[room.id][cname]
-            row[cname] = count if count > 0 else 0
-        row['Block Total'] = room_totals[room.id]
+            cell = matrix.get(rid, {}).get(cname, {'total': 0, 'sets': {}})
+            if cell['total'] > 0:
+                sets_str = ", ".join([f"{s}:{c}" for s, c in sorted(cell['sets'].items())])
+                row[cname] = f"{cell['total']} ({sets_str})"
+            else:
+                row[cname] = 0
+        row['Block Total'] = room_totals.get(rid, 0)
         rows.append(row)
     
     # Add Class Totals row
@@ -258,11 +315,16 @@ def export_consolidated_pdf(test, rooms, class_names, matrix, room_totals, class
     data = [header]
     
     for room in rooms:
-        row = [f"{room.name} {room.section}"]
+        rid = str(getattr(room, 'id', ''))
+        row = [f"{getattr(room, 'name', '')} {getattr(room, 'section', '')}"]
         for cname in class_names:
-            count = matrix[room.id][cname]
-            row.append(str(count) if count > 0 else "-")
-        row.append(str(room_totals[room.id]))
+            cell = matrix.get(rid, {}).get(cname, {'total': 0, 'sets': {}})
+            if cell['total'] > 0:
+                sets_str = " ".join([f"{s}:{c}" for s, c in sorted(cell['sets'].items())])
+                row.append(f"{cell['total']}\n({sets_str})")
+            else:
+                row.append("-")
+        row.append(str(room_totals.get(rid, 0)))
         data.append(row)
     
     # Totals Row

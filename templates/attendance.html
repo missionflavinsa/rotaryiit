@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance: {{ test.title }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h2 style="margin: 0;">{{ test.title }}</h2>
+            <p style="color: var(--text-muted); margin: 0.3rem 0 0;">Attendance Report</p>
+        </div>
+        <a href="{{ url_for('view_seating', test_id=test.id) }}" class="btn btn-primary" style="background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); box-shadow: none;">
+            <i class="fas fa-arrow-left"></i> Back to Seating
+        </a>
+    </div>
+
+    <!-- Summary Stats -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+        <div style="background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 1.2rem; text-align: center;">
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Total Students</p>
+            <h2 style="margin: 0.3rem 0 0; color: var(--secondary);">{{ stats.total }}</h2>
+        </div>
+        <div style="background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 1.2rem; text-align: center;">
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Present</p>
+            <h2 style="margin: 0.3rem 0 0; color: #4ade80;">{{ stats.present }}</h2>
+        </div>
+        <div style="background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 1.2rem; text-align: center;">
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Absent</p>
+            <h2 style="margin: 0.3rem 0 0; color: #f87171;">{{ stats.absent }}</h2>
+        </div>
+        <div style="background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 1.2rem; text-align: center;">
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Unmarked</p>
+            <h2 style="margin: 0.3rem 0 0; color: #fbbf24;">{{ stats.unmarked }}</h2>
+        </div>
+        <div style="background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 1.2rem; text-align: center;">
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Attendance %</p>
+            <h2 style="margin: 0.3rem 0 0; color: var(--accent);">{{ stats.percentage }}%</h2>
+        </div>
+    </div>
+
+    {% if not room_records %}
+    <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+        <i class="fas fa-clipboard-list" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+        <p>No attendance records yet. Supervisors can mark attendance from the mobile app.</p>
+    </div>
+    {% endif %}
+
+    <!-- Room-wise Attendance Tables -->
+    {% for room_name, records in room_records.items() %}
+    <div style="margin-bottom: 3rem;">
+        <h3 style="color: var(--secondary); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--glass-border);">
+            <i class="fas fa-door-open" style="margin-right: 0.5rem;"></i>{{ room_name }}
+            <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal; margin-left: 1rem;">
+                {{ records|selectattr('status', 'equalto', 'present')|list|length }}/{{ records|length }} present
+            </span>
+        </h3>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: rgba(255,255,255,0.05);">
+                        <th style="padding: 12px; text-align: left; color: var(--text-muted); font-size: 0.85rem;">#</th>
+                        <th style="padding: 12px; text-align: left; color: var(--text-muted); font-size: 0.85rem;">Roll Number</th>
+                        <th style="padding: 12px; text-align: left; color: var(--text-muted); font-size: 0.85rem;">Student Name</th>
+                        <th style="padding: 12px; text-align: left; color: var(--text-muted); font-size: 0.85rem;">Class</th>
+                        <th style="padding: 12px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">Set</th>
+                        <th style="padding: 12px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">Status</th>
+                        <th style="padding: 12px; text-align: left; color: var(--text-muted); font-size: 0.85rem;">Marked By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records|sort(attribute='student.roll_number') %}
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 10px; font-size: 0.9rem;">{{ loop.index }}</td>
+                        <td style="padding: 10px; font-size: 0.9rem; font-weight: 600;">{{ record.student.roll_number }}</td>
+                        <td style="padding: 10px; font-size: 0.9rem;">{{ record.student.name }}</td>
+                        <td style="padding: 10px; font-size: 0.9rem; color: var(--text-muted);">{{ record.student.classroom }}</td>
+                        <td style="padding: 10px; text-align: center;">
+                            <span style="background: var(--accent); color: white; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem;">{{ record.paper_set }}</span>
+                        </td>
+                        <td style="padding: 10px; text-align: center;">
+                            {% if record.status == 'present' %}
+                            <span style="background: rgba(74,222,128,0.2); color: #4ade80; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+                                <i class="fas fa-check"></i> Present
+                            </span>
+                            {% elif record.status == 'absent' %}
+                            <span style="background: rgba(248,113,113,0.2); color: #f87171; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+                                <i class="fas fa-times"></i> Absent
+                            </span>
+                            {% else %}
+                            <span style="background: rgba(251,191,36,0.2); color: #fbbf24; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+                                <i class="fas fa-clock"></i> Pending
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px; font-size: 0.8rem; color: var(--text-muted);">
+                            {{ record.marked_by or '—' }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

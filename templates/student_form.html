@@ -17,7 +17,7 @@
             <label for="class_id">Allocate to Class</label>
             <select id="class_id" name="class_id" required>
                 {% for class in classes %}
-                <option value="{{ class.id }}" {% if student and student.class_id == class.id %}selected{% endif %}>{{ class.name }} (Section {{ class.section }})</option>
+                <option value="{{ class.id }}" {% if student and student.classroom_id == class.id %}selected{% endif %}>{{ class.name }} (Section {{ class.section }})</option>
                 {% endfor %}
             </select>
         </div>

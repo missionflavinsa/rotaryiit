@@ -44,15 +44,15 @@
 
         <h3 style="margin-bottom: 1rem; color: var(--secondary);">Step 1: Select Target Classes (Students)</h3>
         <div class="form-group">
-                {% set target_ids = (test.target_classes_json|from_json) if test else [] %}
+                {% set target_ids = test.target_classes if test else [] %}
                 {% for class in classes %}
                 {% set class_id_str = class.id|string %}
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <input type="checkbox" name="target_classes" value="{{ class.id }}" 
-                           data-students="{{ class.students|length }}"
+                           data-students="{{ class.student_count }}"
                            {% if class_id_str in target_ids %}checked{% endif %}
                            onchange="updateCapacity()" style="width: auto;">
-                    <span style="font-size: 0.9rem;">{{ class.name }} - {{ class.section }} ({{ class.students|length }})</span>
+                    <span style="font-size: 0.9rem;">{{ class.name }} - {{ class.section }} ({{ class.student_count }})</span>
                 </div>
                 {% endfor %}
             </div>
@@ -61,7 +61,7 @@
         <h3 style="margin-bottom: 1rem; color: var(--secondary); margin-top: 2rem;">Step 2: Assign Exam Blocks & Supervisors</h3>
         <div class="form-group">
             <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
-                {% set block_data = (test.exam_blocks_json|from_json) if test else [] %}
+                {% set block_data = test.exam_blocks if test else [] %}
                 {% set block_room_ids = [] %}
                 {% set room_to_sup = {} %}
                 {% for b in block_data %}

@@ -10,8 +10,13 @@
             <input type="text" id="name" name="name" required value="{{ supervisor.name if supervisor else '' }}" placeholder="Dr. John Doe">
         </div>
         <div class="form-group">
-            <label for="email">Email (Optional)</label>
+            <label for="email">Email (Required for Mobile Login)</label>
             <input type="email" id="email" name="email" value="{{ supervisor.email if supervisor else '' }}" placeholder="john.doe@example.com">
+        </div>
+        <div class="form-group">
+            <label for="password">Password (Set for Mobile App Login)</label>
+            <input type="password" id="password" name="password" placeholder="{{ 'Leave blank to keep current password' if supervisor else 'Min 6 characters' }}" minlength="6">
+            <small style="color: var(--text-muted); font-size: 0.8rem;">{% if supervisor %}Leave blank to keep existing password{% else %}Required to enable mobile app access{% endif %}</small>
         </div>
         <div class="form-group">
             <label for="phone">Phone Number (Optional)</label>

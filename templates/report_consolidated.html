@@ -33,9 +33,19 @@
                 <tr style="background: white;">
                     <td style="border: 1px solid #000; padding: 12px; font-weight: 700;">{{ room.name }} {{ room.section }}</td>
                     {% for cname in class_names %}
-                        {% set count = matrix[room.id][cname] %}
+                        {% set cell = matrix[room.id][cname] %}
+                        {% set count = cell.total %}
                         <td class="cell-border count-cell {{ 'count-zero' if count == 0 else 'count-active' }}">
-                            {{ count if count > 0 else '-' }}
+                            {% if count > 0 %}
+                                <div style="font-weight: 800; font-size: 1.1rem;">{{ count }}</div>
+                                <div style="font-size: 0.7rem; color: #444; margin-top: 4px; font-weight: 600;">
+                                    {% for set_name, set_count in cell.sets.items()|sort %}
+                                        {{ set_name }}:{{ set_count }}{{ "," if not loop.last else "" }}
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                -
+                            {% endif %}
                         </td>
                     {% endfor %}
                     <td style="border: 1px solid #000; padding: 12px; text-align: center; font-weight: 800;">
