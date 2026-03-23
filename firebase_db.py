@@ -8,14 +8,19 @@ import os
 service_key_path = os.path.join(os.path.dirname(__file__), 'serviceAccountKey.json')
 
 if not firebase_admin._apps:
-    if os.path.exists(service_key_path):
+    service_account_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT')
+    if service_account_json:
+        # Load credentials from environment variable JSON string
+        import json
+        cred_info = json.loads(service_account_json)
+        cred = credentials.Certificate(cred_info)
+        firebase_admin.initialize_app(cred)
+    elif os.path.exists(service_key_path):
+        # Fallback to local file if it exists
         cred = credentials.Certificate(service_key_path)
         firebase_admin.initialize_app(cred)
     else:
-        # Fallback for environment variables if needed
-        # cred = credentials.Certificate(json.loads(os.environ.get('FIREBASE_CONFIG')))
-        # firebase_admin.initialize_app(cred)
-        raise FileNotFoundError("serviceAccountKey.json not found in root directory!")
+        raise FileNotFoundError("Neither FIREBASE_SERVICE_ACCOUNT env var nor serviceAccountKey.json found!")
 
 db = firestore.client()
 
