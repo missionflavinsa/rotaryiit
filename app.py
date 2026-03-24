@@ -298,7 +298,7 @@ def list_supervisors():
 def add_supervisor():
     if request.method == 'POST':
         name = request.form['name']
-        email = request.form.get('email')
+        email = request.form.get('email', '').strip().lower()
         phone = request.form.get('phone')
         password = request.form.get('password')
         
@@ -341,7 +341,7 @@ def edit_supervisor(id):
     
     supervisor = doc.to_dict() | {'id': doc.id}
     if request.method == 'POST':
-        email = request.form.get('email')
+        email = request.form.get('email', '').strip().lower()
         password = request.form.get('password')
         
         update_data = {
