@@ -154,10 +154,24 @@
             display: none !important;
         }
         .print-container.grid-hidden .report-page {
-            padding: 10mm !important; /* Narrow margins for the list section */
+            padding: 5mm !important; /* Strict narrow margins */
+        }
+        .print-container.grid-hidden .report-header {
+            margin-bottom: 2px !important; /* Minimal gap after divider */
+        }
+        .print-container.grid-hidden .report-header h1,
+        .print-container.grid-hidden .report-header h2,
+        .print-container.grid-hidden .report-header h3,
+        .print-container.grid-hidden .report-header p {
+            font-size: 14px !important; /* Compact headers */
+            margin: 2px 0 !important;
         }
         .print-container.grid-hidden .checklist-section table {
-            font-size: 0.8rem !important; /* Slightly smaller for more rows */
+            font-size: 0.8rem !important;
+        }
+        .print-container.grid-hidden .checklist-section table th:first-child,
+        .print-container.grid-hidden .checklist-section table td:first-child {
+            display: none !important; /* Hide Seat # column */
         }
     }
     .hidden { display: none !important; }
