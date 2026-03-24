@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Supervision Reports ({{ current_year }}){% endblock %}
+
+{% block header_actions %}
+<form method="GET" style="display: flex; gap: 10px; align-items: center;">
+    <select name="year" onchange="this.form.submit()" style="background: var(--glass); color: white; border: 1px solid var(--glass-border); padding: 0.5rem 1rem; border-radius: 12px; outline: none;">
+        {% for y in range(2024, 2030) %}
+        <option value="{{ y }}" {{ 'selected' if y == current_year }}>{{ y }}</option>
+        {% endfor %}
+    </select>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="font-size: 1.25rem; margin: 0;">Supervision Counts for {{ current_year }}</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Sorted by activity level</p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Supervisor Name</th>
+                <th>Email</th>
+                <th style="text-align: center;">Total Supervisions</th>
+                <th style="text-align: right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in supervisors %}
+            <tr>
+                <td style="font-weight: 600;">
+                    <i class="fas fa-user-tie" style="margin-right: 10px; color: var(--primary);"></i>
+                    {{ s.name }}
+                </td>
+                <td>{{ s.email }}</td>
+                <td style="text-align: center;">
+                    <span style="background: {{ 'rgba(99, 102, 241, 0.2)' if s.count > 0 else 'rgba(255,255,255,0.05)' }}; color: {{ '#818cf8' if s.count > 0 else 'var(--text-muted)' }}; padding: 4px 12px; border-radius: 20px; font-weight: 700;">
+                        {{ s.count }}
+                    </span>
+                </td>
+                <td style="text-align: right;">
+                    <a href="{{ url_for('supervisor_detail_report', id=s.id) }}" class="btn" style="padding: 0.4rem 1rem; font-size: 0.8rem; background: var(--glass); border: 1px solid var(--glass-border);">
+                        <i class="fas fa-chart-line"></i> View Detail
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if not supervisors %}
+    <p style="text-align: center; color: var(--text-muted); padding: 3rem;">No supervisors found in the system.</p>
+    {% endif %}
+</div>
+{% endblock %}

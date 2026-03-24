@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Supervision History: {{ supervisor.name }}{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('supervision_reports') }}" class="btn" style="background: var(--glass); border: 1px solid var(--glass-border); color: white;">
+    <i class="fas fa-arrow-left"></i> Back to All Reports
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="margin-bottom: 2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div>
+            <h2 style="font-size: 1.5rem; margin-bottom: 5px;">{{ supervisor.name }}</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+                <i class="fas fa-envelope"></i> {{ supervisor.email }} | <i class="fas fa-phone"></i> {{ supervisor.phone }}
+            </p>
+        </div>
+        <div style="text-align: right;">
+            <p style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Total Supervisions</p>
+            <span style="font-size: 2.5rem; font-weight: 700; color: var(--primary);">{{ history|length }}</span>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Test Title</th>
+                <th>Date</th>
+                <th>Assigned Room</th>
+                <th style="text-align: center;">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in history %}
+            <tr>
+                <td style="font-weight: 600;">{{ record.test_title }}</td>
+                <td style="color: var(--text-muted);">{{ record.date.strftime('%d %b, %Y') if record.date else 'N/A' }}</td>
+                <td>
+                    <span style="background: rgba(236, 72, 153, 0.1); color: #f472b6; padding: 4px 10px; border-radius: 8px; font-size: 0.85rem; border: 1px solid rgba(236, 72, 153, 0.2);">
+                        <i class="fas fa-door-open" style="margin-right: 5px;"></i> {{ record.room_name }}
+                    </span>
+                </td>
+                <td style="text-align: center;">
+                    <span style="color: #4ade80; font-size: 0.8rem; background: rgba(34, 197, 94, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(34, 197, 94, 0.2);">
+                        Completed
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if not history %}
+    <p style="text-align: center; color: var(--text-muted); padding: 3rem;">No supervision records found for this teacher.</p>
+    {% endif %}
+</div>
+{% endblock %}

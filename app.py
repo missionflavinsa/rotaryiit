@@ -85,22 +85,26 @@ def bulk_import():
                             count += 1
                 elif import_type == 'students':
                     for _, row in df.iterrows():
-                        cls_str = str(row.get('Class', ''))
+                        cls_str = str(row.get('Class', '')).strip()
                         if '-' in cls_str:
                             cls_name, cls_sec = cls_str.split('-', 1)
-                            query = db.collection('classrooms').where(filter=FieldFilter('name', '==', cls_name.strip())).where(filter=FieldFilter('section', '==', cls_sec.strip())).get()
-                            if query:
-                                classroom_id = query[0].id
-                                db.collection('students').add({
-                                    'name': str(row.get('Name', '')),
-                                    'roll_number': str(row.get('Roll Number', '')),
-                                    'classroom_id': str(classroom_id)
-                                })
-                                count += 1
-                            else:
-                                errors.append(f"Class {cls_str} not found for student {row.get('Name')}")
+                        elif ' ' in cls_str:
+                            cls_name, cls_sec = cls_str.split(' ', 1)
                         else:
-                            errors.append(f"Invalid class format for student {row.get('Name')}: {cls_str}")
+                            errors.append(f"Invalid class format for student {row.get('Name')}: {cls_str}. Expected format: 'X-A' or 'X A'")
+                            continue
+                            
+                        query = db.collection('classrooms').where(filter=FieldFilter('name', '==', cls_name.strip())).where(filter=FieldFilter('section', '==', cls_sec.strip())).get()
+                        if query:
+                            classroom_id = query[0].id
+                            db.collection('students').add({
+                                'name': str(row.get('Name', '')),
+                                'roll_number': str(row.get('Roll Number', '')),
+                                'classroom_id': str(classroom_id)
+                            })
+                            count += 1
+                        else:
+                            errors.append(f"Class '{cls_name.strip()}-{cls_sec.strip()}' not found in database for student {row.get('Name')}")
                 elif import_type == 'supervisors':
                     for _, row in df.iterrows():
                         name = str(row.get('Name', ''))
@@ -372,6 +376,52 @@ def delete_supervisor(id):
     db.collection('supervisors').document(str(id)).delete()
     flash('Supervisor deleted successfully!')
     return redirect(url_for('list_supervisors'))
+
+@app.route('/supervisors/reports')
+def supervision_reports():
+    year = request.args.get('year', datetime.now().year, type=int)
+    all_tests = db.collection('tests').get()
+    supervisors = {doc.id: doc.to_dict() | {'id': doc.id, 'count': 0} for doc in db.collection('supervisors').get()}
+    
+    for t_doc in all_tests:
+        t = t_doc.to_dict()
+        if t.get('date') and t['date'].year == year:
+            blocks = t.get('exam_blocks', [])
+            for b in blocks:
+                sid = b.get('supervisor_id')
+                if sid in supervisors:
+                    supervisors[sid]['count'] += 1
+                    
+    # Sort by count descending
+    sorted_supervisors = sorted(supervisors.values(), key=lambda x: x['count'], reverse=True)
+    return render_template('reports_supervision.html', supervisors=sorted_supervisors, current_year=year)
+
+@app.route('/supervisors/report/<id>')
+def supervisor_detail_report(id):
+    s_doc = db.collection('supervisors').document(str(id)).get()
+    if not s_doc.exists:
+        flash('Supervisor not found!')
+        return redirect(url_for('supervision_reports'))
+    
+    supervisor = s_doc.to_dict() | {'id': s_doc.id}
+    history = []
+    all_tests = db.collection('tests').order_by('date', direction=firestore.Query.DESCENDING).get()
+    
+    for t_doc in all_tests:
+        t = t_doc.to_dict() | {'id': t_doc.id}
+        blocks = t.get('exam_blocks', [])
+        for b in blocks:
+            if b.get('supervisor_id') == str(id):
+                # Get room info
+                r_doc = db.collection('classrooms').document(str(b['room_id'])).get()
+                room = r_doc.to_dict() if r_doc.exists else {'name': 'Unknown', 'section': ''}
+                history.append({
+                    'test_title': t['title'],
+                    'date': t['date'],
+                    'room_name': f"{room.get('name')} {room.get('section')}".strip()
+                })
+                
+    return render_template('report_supervisor_detail.html', supervisor=supervisor, history=history)
 
 # --- Test CRUD ---
 @app.route('/tests')

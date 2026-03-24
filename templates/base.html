@@ -296,6 +296,7 @@
                     <li><a href="{{ url_for('list_students') }}" class="{{ 'active' if 'student' in request.endpoint }}"><i class="fas fa-user-graduate"></i> Students</a></li>
                     <li><a href="{{ url_for('list_supervisors') }}" class="{{ 'active' if 'supervisor' in request.endpoint }}"><i class="fas fa-user-tie"></i> Supervisors</a></li>
                     <li><a href="{{ url_for('list_tests') }}" class="{{ 'active' if 'test' in request.endpoint }}"><i class="fas fa-vial"></i> Exams</a></li>
+                    <li><a href="{{ url_for('supervision_reports') }}" class="{{ 'active' if 'supervision' in request.endpoint }}"><i class="fas fa-file-invoice"></i> Supervision Reports</a></li>
                     <li><a href="{{ url_for('bulk_import') }}" class="{{ 'active' if 'import' in request.endpoint }}"><i class="fas fa-file-import"></i> Bulk Import</a></li>
                 </ul>
             </nav>

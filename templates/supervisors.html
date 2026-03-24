@@ -25,6 +25,9 @@
                 <td>{{ supervisor.phone }}</td>
                 <td>
                     <div style="display: flex; gap: 10px;">
+                        <a href="{{ url_for('supervisor_detail_report', id=supervisor.id) }}" class="btn" title="View Detailed Report" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);">
+                            <i class="fas fa-chart-line"></i> Report
+                        </a>
                         <a href="{{ url_for('edit_supervisor', id=supervisor.id) }}" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3);">
                             <i class="fas fa-edit"></i> Edit
                         </a>
