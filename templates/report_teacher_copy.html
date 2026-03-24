@@ -192,7 +192,7 @@
         .print-container.grid-hidden .report-header {
             margin-bottom: 2px !important; /* Minimal gap after divider */
         }
-        .print-container.grid-hidden .report-header h1,
+        .print-container.grid-hidden .report-header h1 { display: block !important; }
         .print-container.grid-hidden .report-header h2 { display: none !important; }
         .print-container.grid-hidden .report-header h3,
         .print-container.grid-hidden .report-header p {
@@ -218,9 +218,20 @@
             display: none !important;
         }
     }
-    .supervisor-summary-section { display: none; }
+    .supervisor-summary-section { 
+        display: none; 
+        break-inside: avoid;
+        -webkit-column-break-inside: avoid;
+        page-break-inside: avoid;
+    }
     @media print {
-        .print-container.grid-hidden .supervisor-summary-section { display: block !important; }
+        .print-container.grid-hidden .supervisor-summary-section { 
+            display: block !important; 
+            break-inside: avoid;
+            -webkit-column-break-inside: avoid;
+            page-break-inside: avoid;
+            margin-top: 20px !important;
+        }
     }
     .hidden { display: none !important; }
     .report-page {
