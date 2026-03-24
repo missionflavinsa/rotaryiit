@@ -260,17 +260,32 @@ def export_to_pdf(test, arrangements, report_type):
     else:
         data.append(['Notice', 'No data available for this report type'])
     
-    # Seating Table
-    t = Table(data)
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.white),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.black)
-    ]))
+    # Table styling and widths
+    if report_type == 'student':
+        # Autofit to page width (A4 available width is ~535)
+        col_widths = [100, 285, 150] # Roll No, Name, Room
+        t = Table(data, colWidths=col_widths)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.white),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'), # Default center
+            ('ALIGN', (1, 1), (2, -1), 'LEFT'),    # Name and Room on left
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black)
+        ]))
+    else:
+        t = Table(data)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.white),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black)
+        ]))
     elements.append(t)
     doc.build(elements)
     
