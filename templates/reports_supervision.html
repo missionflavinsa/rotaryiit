@@ -35,15 +35,15 @@
                     <i class="fas fa-user-tie" style="margin-right: 10px; color: var(--primary);"></i>
                     {{ s.name }}
                 </td>
-                <td>{{ s.email }}</td>
+                <td>{{ s.email if s.email and s.email|string != 'nan' else 'N/A' }}</td>
                 <td style="text-align: center;">
-                    <span style="background: {{ 'rgba(99, 102, 241, 0.2)' if s.count > 0 else 'rgba(255,255,255,0.05)' }}; color: {{ '#818cf8' if s.count > 0 else 'var(--text-muted)' }}; padding: 4px 12px; border-radius: 20px; font-weight: 700;">
+                    <span style="background: {{ 'rgba(99, 102, 241, 0.3)' if s.count > 0 else 'rgba(255,255,255,0.1)' }}; color: {{ '#c7d2fe' if s.count > 0 else 'var(--text-muted)' }}; padding: 4px 12px; border-radius: 20px; font-weight: 700; border: 1px solid {{ 'rgba(99, 102, 241, 0.4)' if s.count > 0 else 'transparent' }};">
                         {{ s.count }}
                     </span>
                 </td>
                 <td style="text-align: right;">
-                    <a href="{{ url_for('supervisor_detail_report', id=s.id) }}" class="btn" style="padding: 0.4rem 1rem; font-size: 0.8rem; background: var(--glass); border: 1px solid var(--glass-border);">
-                        <i class="fas fa-chart-line"></i> View Detail
+                    <a href="{{ url_for('supervisor_detail_report', id=s.id) }}" class="btn" style="padding: 0.5rem 1.2rem; font-size: 0.85rem; background: var(--primary); color: white; border: none; box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);">
+                        <i class="fas fa-eye"></i> View Detail
                     </a>
                 </td>
             </tr>

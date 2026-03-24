@@ -6,6 +6,7 @@ from io import BytesIO
 from datetime import datetime
 from firebase_db import get_db
 from firebase_admin import auth as firebase_auth
+from google.cloud import firestore
 from google.cloud.firestore import FieldFilter
 
 app = Flask(__name__)
