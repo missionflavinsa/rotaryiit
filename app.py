@@ -6,6 +6,7 @@ from io import BytesIO
 from datetime import datetime
 from firebase_db import get_db
 from firebase_admin import auth as firebase_auth
+from google.cloud.firestore import FieldFilter
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_secret_key')
@@ -87,7 +88,7 @@ def bulk_import():
                         cls_str = str(row.get('Class', ''))
                         if '-' in cls_str:
                             cls_name, cls_sec = cls_str.split('-', 1)
-                            query = db.collection('classrooms').where('name', '==', cls_name.strip()).where('section', '==', cls_sec.strip()).get()
+                            query = db.collection('classrooms').where(filter=FieldFilter('name', '==', cls_name.strip())).where(filter=FieldFilter('section', '==', cls_sec.strip())).get()
                             if query:
                                 classroom_id = query[0].id
                                 db.collection('students').add({
@@ -274,7 +275,7 @@ def edit_student(id):
 @app.route('/students/delete/<id>')
 def delete_student(id):
     # Delete related seating arrangements first
-    arrangements = db.collection('seating_arrangements').where('student_id', '==', str(id)).get()
+    arrangements = db.collection('seating_arrangements').where(filter=FieldFilter('student_id', '==', str(id))).get()
     for doc in arrangements:
         doc.reference.delete()
     
@@ -375,7 +376,13 @@ def delete_supervisor(id):
 # --- Test CRUD ---
 @app.route('/tests')
 def list_tests():
-    tests = [doc.to_dict() | {'id': doc.id} for doc in db.collection('tests').get()]
+    tests = []
+    for doc in db.collection('tests').get():
+        t = doc.to_dict() | {'id': doc.id}
+        # Check if seating has been generated
+        arr_count = len(db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', doc.id)).get())
+        t['arrangements'] = [0] * arr_count # Create a dummy list of the right length for the template
+        tests.append(t)
     return render_template('tests.html', tests=tests)
 
 @app.route('/tests/add', methods=['GET', 'POST'])
@@ -384,7 +391,7 @@ def add_test():
     for doc in db.collection('classrooms').get():
         c = doc.to_dict() | {'id': doc.id}
         # Add student count for this class
-        s_count = len(db.collection('students').where('classroom_id', '==', doc.id).get())
+        s_count = len(db.collection('students').where(filter=FieldFilter('classroom_id', '==', doc.id)).get())
         c['student_count'] = s_count
         classes.append(c)
         
@@ -408,7 +415,7 @@ def add_test():
         # Capacity check
         total_students = 0
         for cid in target_classes:
-            total_students += len(db.collection('students').where('classroom_id', '==', str(cid)).get())
+            total_students += len(db.collection('students').where(filter=FieldFilter('classroom_id', '==', str(cid))).get())
             
         total_capacity = 0
         for b in exam_blocks:
@@ -444,7 +451,7 @@ def edit_test(id):
     classes = []
     for c_doc in db.collection('classrooms').get():
         c = c_doc.to_dict() | {'id': c_doc.id}
-        s_count = len(db.collection('students').where('classroom_id', '==', c_doc.id).get())
+        s_count = len(db.collection('students').where(filter=FieldFilter('classroom_id', '==', c_doc.id)).get())
         c['student_count'] = s_count
         classes.append(c)
         
@@ -475,7 +482,7 @@ def edit_test(id):
 @app.route('/tests/delete/<id>')
 def delete_test(id):
     # Delete related seating arrangements
-    arrs = db.collection('seating_arrangements').where('test_id', '==', str(id)).get()
+    arrs = db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', str(id))).get()
     for doc in arrs:
         doc.reference.delete()
         
@@ -519,7 +526,7 @@ def generate_seating(test_id):
             
     students = []
     for cid in target_class_ids:
-        s_docs = db.collection('students').where('classroom_id', '==', str(cid)).get()
+        s_docs = db.collection('students').where(filter=FieldFilter('classroom_id', '==', str(cid))).get()
         for s_doc in s_docs:
             s_data = s_doc.to_dict() | {'id': s_doc.id}
             # Algorithm expects student.id, student.classroom.name/section
@@ -536,7 +543,7 @@ def generate_seating(test_id):
         return redirect(url_for('list_tests'))
     
     # Delete old arrangements
-    old_arrs = db.collection('seating_arrangements').where('test_id', '==', str(test_id)).get()
+    old_arrs = db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', str(test_id))).get()
     for old_arr in old_arrs:
         old_arr.reference.delete()
         
@@ -558,7 +565,7 @@ def view_seating(test_id):
         return redirect(url_for('list_tests'))
     
     test = doc.to_dict() | {'id': doc.id}
-    arrangements_docs = db.collection('seating_arrangements').where('test_id', '==', str(test_id)).get()
+    arrangements_docs = db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', str(test_id))).get()
     
     # seat_number -> arrangement
     room_to_seats = {}
@@ -570,9 +577,9 @@ def view_seating(test_id):
         # Need student info for badges
         s_doc = db.collection('students').document(str(a['student_id'])).get()
         if s_doc.exists:
-            s = s_doc.to_dict()
+            s = s_doc.to_dict() | {'id': s_doc.id}
             c_doc = db.collection('classrooms').document(str(s['classroom_id'])).get()
-            s['classroom'] = c_doc.to_dict() if c_doc.exists else {}
+            s['classroom'] = (c_doc.to_dict() | {'id': c_doc.id}) if c_doc.exists else {}
             a['student'] = s
             
         room_to_seats[rid][a['seat_number']] = a
@@ -622,7 +629,7 @@ def report_teacher_copy(id):
         return redirect(url_for('list_tests'))
     
     test = doc.to_dict() | {'id': doc.id}
-    arrangements_docs = db.collection('seating_arrangements').where('test_id', '==', str(id)).get()
+    arrangements_docs = db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', str(id))).get()
     arrangements = [a.to_dict() | {'id': a.id} for a in arrangements_docs]
     
     # Pre-fetch students to avoid N+1
@@ -632,9 +639,9 @@ def report_teacher_copy(id):
         if s_id not in students_lookup:
             s_doc = db.collection('students').document(str(s_id)).get()
             if s_doc.exists:
-                s_data = s_doc.to_dict()
+                s_data = s_doc.to_dict() | {'id': s_doc.id}
                 c_doc = db.collection('classrooms').document(str(s_data['classroom_id'])).get()
-                s_data['classroom'] = c_doc.to_dict() if c_doc.exists else {}
+                s_data['classroom'] = (c_doc.to_dict() | {'id': c_doc.id}) if c_doc.exists else {}
                 students_lookup[s_id] = type('obj', (object,), s_data)
         a['student'] = students_lookup.get(s_id)
 
@@ -683,7 +690,7 @@ def report_consolidated(id):
         return redirect(url_for('list_tests'))
     
     test = doc.to_dict() | {'id': doc.id}
-    arrangements_docs = db.collection('seating_arrangements').where('test_id', '==', str(id)).get()
+    arrangements_docs = db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', str(id))).get()
     
     # Rebuild logic with pre-fetched rooms and students
     arrangements = []
@@ -691,9 +698,9 @@ def report_consolidated(id):
         a = a_doc.to_dict() | {'id': a_doc.id}
         s_doc = db.collection('students').document(str(a['student_id'])).get()
         if s_doc.exists:
-            s_data = s_doc.to_dict()
+            s_data = s_doc.to_dict() | {'id': s_doc.id}
             c_doc = db.collection('classrooms').document(str(s_data['classroom_id'])).get()
-            s_data['classroom'] = c_doc.to_dict() if c_doc.exists else {}
+            s_data['classroom'] = (c_doc.to_dict() | {'id': c_doc.id}) if c_doc.exists else {}
             a['student'] = type('obj', (object,), s_data)
             a['student'].classroom = type('obj', (object,), s_data['classroom'])
             arrangements.append(type('obj', (object,), a))
@@ -727,15 +734,15 @@ def export_consolidated_excel(id):
     test_data = doc.to_dict() | {'id': doc.id}
     test = type('obj', (object,), test_data)
 
-    arrangements_docs = db.collection('seating_arrangements').where('test_id', '==', str(id)).get()
+    arrangements_docs = db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', str(id))).get()
     arrangements = []
     for a_doc in arrangements_docs:
         a = a_doc.to_dict() | {'id': a_doc.id}
         s_doc = db.collection('students').document(str(a['student_id'])).get()
         if s_doc.exists:
-            s_data = s_doc.to_dict()
+            s_data = s_doc.to_dict() | {'id': s_doc.id}
             c_doc = db.collection('classrooms').document(str(s_data['classroom_id'])).get()
-            s_data['classroom'] = c_doc.to_dict() if c_doc.exists else {}
+            s_data['classroom'] = (c_doc.to_dict() | {'id': c_doc.id}) if c_doc.exists else {}
             a['student'] = type('obj', (object,), s_data)
             a['student'].classroom = type('obj', (object,), s_data['classroom'])
             arrangements.append(type('obj', (object,), a))
@@ -768,15 +775,15 @@ def export_consolidated_pdf(id):
     test_data = doc.to_dict() | {'id': doc.id}
     test = type('obj', (object,), test_data)
 
-    arrangements_docs = db.collection('seating_arrangements').where('test_id', '==', str(id)).get()
+    arrangements_docs = db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', str(id))).get()
     arrangements = []
     for a_doc in arrangements_docs:
         a = a_doc.to_dict() | {'id': a_doc.id}
         s_doc = db.collection('students').document(str(a['student_id'])).get()
         if s_doc.exists:
-            s_data = s_doc.to_dict()
+            s_data = s_doc.to_dict() | {'id': s_doc.id}
             c_doc = db.collection('classrooms').document(str(s_data['classroom_id'])).get()
-            s_data['classroom'] = c_doc.to_dict() if c_doc.exists else {}
+            s_data['classroom'] = (c_doc.to_dict() | {'id': c_doc.id}) if c_doc.exists else {}
             a['student'] = type('obj', (object,), s_data)
             a['student'].classroom = type('obj', (object,), s_data['classroom'])
             arrangements.append(type('obj', (object,), a))
@@ -811,8 +818,8 @@ def save_seating(test_id):
         for item in data:
             # Find the arrangement for this student in this test
             query = db.collection('seating_arrangements')\
-                .where('test_id', '==', str(test_id))\
-                .where('student_id', '==', str(item['student_id']))\
+                .where(filter=FieldFilter('test_id', '==', str(test_id)))\
+                .where(filter=FieldFilter('student_id', '==', str(item['student_id'])))\
                 .get()
             
             if query:
@@ -847,7 +854,7 @@ def get_unassigned_students(test_id):
     target_class_ids = test.get('target_classes', [])
     
     # Get assigned students
-    assigned_docs = db.collection('seating_arrangements').where('test_id', '==', str(test_id)).get()
+    assigned_docs = db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', str(test_id))).get()
     assigned_student_ids = set(str(a.to_dict().get('student_id')) for a in assigned_docs)
     
     unassigned = []
@@ -878,9 +885,9 @@ def add_seating_entry(test_id):
     data = request.json
     # Check if seat already taken
     existing = db.collection('seating_arrangements')\
-        .where('test_id', '==', str(test_id))\
-        .where('room_id', '==', str(data['room_id']))\
-        .where('seat_number', '==', int(data['seat_number']))\
+        .where(filter=FieldFilter('test_id', '==', str(test_id)))\
+        .where(filter=FieldFilter('room_id', '==', str(data['room_id'])))\
+        .where(filter=FieldFilter('seat_number', '==', int(data['seat_number'])))\
         .get()
         
     if existing:
@@ -906,16 +913,16 @@ def view_attendance(id):
     test = doc.to_dict() | {'id': doc.id}
     
     # Get all attendance records for this test
-    att_docs = db.collection('attendance').where('test_id', '==', str(id)).get()
+    att_docs = db.collection('attendance').where(filter=FieldFilter('test_id', '==', str(id))).get()
     attendance_records = [a.to_dict() | {'id': a.id} for a in att_docs]
     
     # Get all seating arrangements to show who hasn't been marked
-    arr_docs = db.collection('seating_arrangements').where('test_id', '==', str(id)).get()
+    arrs = db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', str(id))).get()
     
     # Build a lookup of student details
     all_students = {}
     rooms_lookup = {}
-    for a_doc in arr_docs:
+    for a_doc in arrs:
         a = a_doc.to_dict()
         s_id = a['student_id']
         r_id = a['room_id']
@@ -923,9 +930,9 @@ def view_attendance(id):
         if s_id not in all_students:
             s_doc = db.collection('students').document(str(s_id)).get()
             if s_doc.exists:
-                s_data = s_doc.to_dict()
+                s_data = s_doc.to_dict() | {'id': s_doc.id}
                 c_doc = db.collection('classrooms').document(str(s_data.get('classroom_id', ''))).get()
-                c_name = f"{c_doc.to_dict()['name']}-{c_doc.to_dict()['section']}" if c_doc.exists else 'Unknown'
+                c_name = f"{(c_doc.to_dict() | {'id': c_doc.id})['name'] if c_doc.exists else 'Unknown'}-{(c_doc.to_dict() | {'id': c_doc.id})['section'] if c_doc.exists else ''}"
                 all_students[s_id] = {
                     'name': s_data.get('name', 'Unknown'),
                     'roll_number': s_data.get('roll_number', 'N/A'),
@@ -945,7 +952,7 @@ def view_attendance(id):
     
     # Group records by room
     room_records = {}
-    for a_doc in arr_docs:
+    for a_doc in arrs:
         a = a_doc.to_dict()
         r_id = a['room_id']
         s_id = a['student_id']
@@ -999,14 +1006,14 @@ def export_seating(test_id, format, report_type):
             
     test = type('obj', (object,), test_data)
     
-    arr_docs = db.collection('seating_arrangements').where('test_id', '==', str(test_id)).get()
+    arrangements_docs = db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', str(test_id))).get()
     
     # Pre-fetch rooms and students to avoid N+1
     rooms_lookup = {}
     students_lookup = {}
     
     arrangements = []
-    for a_doc in arr_docs:
+    for a_doc in arrangements_docs:
         a = a_doc.to_dict() | {'id': a_doc.id}
         s_id = a['student_id']
         r_id = a['room_id']
@@ -1014,9 +1021,9 @@ def export_seating(test_id, format, report_type):
         if s_id not in students_lookup:
             s_doc = db.collection('students').document(str(s_id)).get()
             if s_doc.exists:
-                s_data = s_doc.to_dict()
+                s_data = s_doc.to_dict() | {'id': s_doc.id}
                 c_doc = db.collection('classrooms').document(str(s_data['classroom_id'])).get()
-                s_data['classroom'] = type('obj', (object,), c_doc.to_dict() if c_doc.exists else {})
+                s_data['classroom'] = type('obj', (object,), (c_doc.to_dict() | {'id': c_doc.id}) if c_doc.exists else {})
                 students_lookup[s_id] = type('obj', (object,), s_data)
         
         student_obj = students_lookup.get(s_id)
