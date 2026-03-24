@@ -3,6 +3,25 @@
 {% block title %}Supervision Reports ({{ current_year }}){% endblock %}
 
 {% block header_actions %}
+<style>
+    .badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        display: inline-block;
+        border: 1px solid transparent;
+    }
+    .badge-active {
+        background: rgba(99, 102, 241, 0.3);
+        color: #c7d2fe;
+        border-color: rgba(99, 102, 241, 0.4);
+    }
+    .badge-inactive {
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text-muted);
+    }
+</style>
 <form method="GET" style="display: flex; gap: 10px; align-items: center;">
     <select name="year" onchange="this.form.submit()" style="background: var(--glass); color: white; border: 1px solid var(--glass-border); padding: 0.5rem 1rem; border-radius: 12px; outline: none;">
         {% for y in range(2024, 2030) %}
@@ -37,7 +56,7 @@
                 </td>
                 <td>{{ s.email if s.email and s.email|string != 'nan' else 'N/A' }}</td>
                 <td style="text-align: center;">
-                    <span style="background: {{ 'rgba(99, 102, 241, 0.3)' if s.count > 0 else 'rgba(255,255,255,0.1)' }}; color: {{ '#c7d2fe' if s.count > 0 else 'var(--text-muted)' }}; padding: 4px 12px; border-radius: 20px; font-weight: 700; border: 1px solid {{ 'rgba(99, 102, 241, 0.4)' if s.count > 0 else 'transparent' }};">
+                    <span class="badge {{ 'badge-active' if s.count > 0 else 'badge-inactive' }}">
                         {{ s.count }}
                     </span>
                 </td>
