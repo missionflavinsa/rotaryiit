@@ -132,15 +132,23 @@ def export_to_excel(test, arrangements, report_type):
                 'Duration': f"{test.duration} mins"
             })
     elif report_type == 'student':
-        # Sort by student class for student view
-        arr_sorted = sorted(arrangements, key=lambda x: (x.student.classroom.name, x.student.classroom.section, x.student.name))
+        # Sort by roll number (A-Z)
+        def get_roll_sort_key(x):
+            try:
+                # Try natural sort for numeric-heavy roll numbers
+                import re
+                return [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', str(x.student.roll_number))]
+            except:
+                return str(x.student.roll_number).lower()
+
+        arr_sorted = sorted(arrangements, key=get_roll_sort_key)
         for arr in arr_sorted:
             data.append({
-                'Student Name': arr.student.name,
                 'Roll Number': arr.student.roll_number,
-                'Class': f"{arr.student.classroom.name}-{arr.student.classroom.section}",
-                'Exam Block': f"{arr.room.name}-{arr.room.section}",
+                'Student Name': arr.student.name,
+                'Exam Room': f"{arr.room.name}-{arr.room.section}",
                 'Seat #': arr.seat_number,
+                'Original Class': f"{arr.student.classroom.name}-{arr.student.classroom.section}",
                 'Exam Duration': f"{test.duration} mins"
             })
     else:
@@ -227,25 +235,27 @@ def export_to_pdf(test, arrangements, report_type):
                 supervisor.name if supervisor and hasattr(supervisor, 'name') else "N/A"
             ])
     elif report_type == 'student':
-        data.append(['Name', 'Roll No', 'Original Class', 'Exam Room', 'Seat #'])
-        # Handle cases where arrangements might be dicts or objects
+        data.append(['Roll No', 'Name', 'Exam Room'])
+        
         def get_student_sort_key(x):
             s = getattr(x, 'student', None)
-            if not s: return ("", "", "")
-            return (getattr(s.classroom, 'name', ""), getattr(s.classroom, 'section', ""), getattr(s, 'name', ""))
+            if not s: return []
+            roll = str(getattr(s, 'roll_number', ""))
+            try:
+                import re
+                return [int(c) if c.isdigit() else c.lower() for c in re.split('([0-9]+)', roll)]
+            except:
+                return [roll.lower()]
             
         arr_sorted = sorted(arrangements, key=get_student_sort_key)
         for arr in arr_sorted:
             student = getattr(arr, 'student', None)
             room = getattr(arr, 'room', None)
-            seat_num = getattr(arr, 'seat_number', arr.get('seat_number') if isinstance(arr, dict) else 'N/A')
             
             data.append([
+                student.roll_number if student else "N/A",
                 student.name if student else "Unknown", 
-                student.roll_number if student else "N/A", 
-                f"{student.classroom.name}-{student.classroom.section}" if student and hasattr(student, 'classroom') else "N/A", 
-                f"{room.name}-{room.section}" if room and hasattr(room, 'name') else "N/A", 
-                seat_num
+                f"{room.name}-{room.section}" if room and hasattr(room, 'name') else "N/A"
             ])
     else:
         data.append(['Notice', 'No data available for this report type'])
