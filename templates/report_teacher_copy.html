@@ -116,16 +116,21 @@
 
 <style>
     @media print {
-        .btn, .sidebar, .header-container, .no-print, .report-signatures { display: none !important; }
+        .btn, .sidebar, .header-container, .no-print, .report-signatures, .header { display: none !important; }
         .main-content { margin-left: 0 !important; padding: 0 !important; width: 100% !important; }
         .card { border: none !important; box-shadow: none !important; background: white !important; }
         body { background: white !important; color: black !important; }
         .report-page { 
             border: none !important; 
-            padding: 20px !important; 
+            padding: 0 !important; 
             margin: 0 !important; 
             page-break-after: always; 
             width: 100% !important;
+            box-shadow: none !important;
+        }
+        .report-header {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
         }
         h1, h2, h3 { color: black !important; }
         table { border: 2px solid black !important; width: 100% !important; border-collapse: collapse !important; }
@@ -144,14 +149,27 @@
 
         /* List-only specific print styles */
         .print-container.grid-hidden .stats-section,
-        .print-container.grid-hidden .visualization-section {
+        .print-container.grid-hidden .visualization-section,
+        .print-container.grid-hidden .checklist-section h3 {
             display: none !important;
         }
         .print-container.grid-hidden .report-page {
-            padding: 10mm !important; /* Narrow margins */
+            padding: 10mm !important; /* Narrow margins for the list section */
+        }
+        .print-container.grid-hidden .checklist-section table {
+            font-size: 0.8rem !important; /* Slightly smaller for more rows */
         }
     }
     .hidden { display: none !important; }
+    .report-page {
+        padding: 40px; 
+        background: white; 
+        color: black; 
+        border-radius: 0; 
+        box-shadow: none; 
+        border: 1px solid #eee; 
+        margin-bottom: 20px;
+    }
     .report-page h1 { font-size: 1.8rem; margin: 0; }
     .report-page h2 { font-size: 1.4rem; margin: 5px 0; color: #4f46e5; }
     .report-page h3 { font-size: 1.1rem; margin: 5px 0; }
