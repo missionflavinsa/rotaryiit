@@ -18,9 +18,14 @@
             <h2 style="margin: 0;">{{ test.title }}</h2>
             <p style="color: var(--text-muted); margin: 0.3rem 0 0;">Attendance Report</p>
         </div>
-        <a href="{{ url_for('view_seating', test_id=test.id) }}" class="btn btn-primary" style="background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); box-shadow: none;">
-            <i class="fas fa-arrow-left"></i> Back to Seating
-        </a>
+        <div style="display: flex; gap: 0.5rem;">
+            <a href="{{ url_for('export_attendance', id=test.id) }}" class="btn btn-primary" style="background: #16a34a; border-color: #15803d;">
+                <i class="fas fa-file-excel"></i> Export to Excel
+            </a>
+            <a href="{{ url_for('view_seating', test_id=test.id) }}" class="btn btn-primary" style="background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); box-shadow: none;">
+                <i class="fas fa-arrow-left"></i> Back to Seating
+            </a>
+        </div>
     </div>
 
     <!-- Summary Stats -->

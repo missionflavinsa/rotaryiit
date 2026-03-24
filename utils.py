@@ -379,3 +379,56 @@ def export_consolidated_pdf(test, rooms, class_names, matrix, room_totals, class
     
     output.seek(0)
     return output
+
+def export_attendance_excel(test, records):
+    """
+    Generates an Excel file for the attendance report of a specific test.
+    """
+    output = BytesIO()
+    data = []
+    
+    # Flatten records for DataFrame
+    # records is a flat list of dicts: {'student': {...}, 'room': '...', 'status': '...', 'marked_by': '...', 'marked_at': '...'}
+    for r in records:
+        student = r.get('student', {})
+        data.append({
+            'Roll Number': student.get('roll_number', 'N/A'),
+            'Student Name': student.get('name', 'Unknown'),
+            'Original Class': student.get('classroom', 'Unknown'),
+            'Exam Room': r.get('room', 'Unknown'),
+            'Paper Set': r.get('paper_set', 'A'),
+            'Status': r.get('status', 'unmarked').capitalize(),
+            'Marked By': r.get('marked_by', '—'),
+            'Marked At': r.get('marked_at', '—')
+        })
+    
+    df = pd.DataFrame(data)
+    # Sort by Roll Number
+    try:
+        import re
+        def natural_sort_key(s):
+            return [int(text) if text.isdigit() else text.lower()
+                    for text in re.split('([0-9]+)', str(s))]
+        df['sort_col'] = df['Roll Number'].apply(natural_sort_key)
+        df = df.sort_values(by='sort_col').drop(columns=['sort_col'])
+    except:
+        df = df.sort_values(by='Roll Number')
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Attendance')
+        
+        # Add a summary sheet
+        summary = {
+            'Test Title': [test.get('title', 'Unknown Test')],
+            'Date': [test.get('date').strftime('%B %d, %Y') if test.get('date') and hasattr(test['date'], 'strftime') else 'N/A'],
+            'Total Students': [len(df)],
+            'Present': [len(df[df['Status'] == 'Present'])],
+            'Absent': [len(df[df['Status'] == 'Absent'])],
+            'Pending': [len(df[df['Status'] == 'Unmarked'])],
+            'Attendance %': [f"{round((len(df[df['Status'] == 'Present']) / len(df) * 100), 1) if len(df) > 0 else 0}%"]
+        }
+        df_summary = pd.DataFrame(summary)
+        df_summary.T.to_excel(writer, header=False, sheet_name='Summary')
+
+    output.seek(0)
+    return output

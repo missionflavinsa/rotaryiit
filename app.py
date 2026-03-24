@@ -1032,7 +1032,71 @@ def view_attendance(id):
         'percentage': round((len(present_ids) / total_students * 100), 1) if total_students else 0
     }
     
+    # Helper to clean marked_by names (remove email domain if present)
+    for room in room_records.values():
+        for record in room:
+            if record['marked_by'] and '@' in record['marked_by']:
+                record['marked_by'] = record['marked_by'].split('@')[0].replace('.', ' ').title()
+
     return render_template('attendance.html', test=test, room_records=room_records, stats=stats)
+
+@app.route('/tests/<id>/attendance/export/excel')
+def export_attendance(id):
+    from utils import export_attendance_excel
+    doc = db.collection('tests').document(str(id)).get()
+    if not doc.exists:
+        flash('Test not found!')
+        return redirect(url_for('list_tests'))
+    
+    test = doc.to_dict() | {'id': doc.id}
+    
+    # Re-use logic from view_attendance to get flat list for export
+    att_docs = db.collection('attendance').where(filter=FieldFilter('test_id', '==', str(id))).get()
+    attendance_records = [a.to_dict() | {'id': a.id} for a in att_docs]
+    arrs = db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', str(id))).get()
+    
+    all_students = {}
+    rooms_lookup = {}
+    for a_doc in arrs:
+        a = a_doc.to_dict()
+        s_id = a['student_id']
+        r_id = a['room_id']
+        if s_id not in all_students:
+            s_doc = db.collection('students').document(str(s_id)).get()
+            if s_doc.exists:
+                s_data = s_doc.to_dict()
+                c_doc = db.collection('classrooms').document(str(s_data.get('classroom_id', ''))).get()
+                c_name = f"{(c_doc.to_dict())['name'] if c_doc.exists else 'Unknown'}-{(c_doc.to_dict())['section'] if c_doc.exists else ''}"
+                all_students[s_id] = {'name': s_data.get('name', 'Unknown'), 'roll_number': s_data.get('roll_number', 'N/A'), 'classroom': c_name}
+        if r_id not in rooms_lookup:
+            r_doc = db.collection('classrooms').document(str(r_id)).get()
+            if r_doc.exists:
+                r_data = r_doc.to_dict()
+                rooms_lookup[r_id] = f"{r_data['name']}-{r_data['section']}"
+
+    flat_records = []
+    for a_doc in arrs:
+        a = a_doc.to_dict()
+        s_id = a['student_id']
+        att_entry = next((r for r in attendance_records if r['student_id'] == s_id), None)
+        
+        marked_by = att_entry.get('marked_by', '') if att_entry else ''
+        if marked_by and '@' in marked_by:
+            marked_by = marked_by.split('@')[0].replace('.', ' ').title()
+
+        flat_records.append({
+            'student': all_students.get(s_id, {'name': 'Unknown', 'roll_number': 'N/A', 'classroom': 'Unknown'}),
+            'room': rooms_lookup.get(a['room_id'], 'Unknown'),
+            'paper_set': a.get('paper_set', 'A'),
+            'status': att_entry.get('status', 'unmarked') if att_entry else 'unmarked',
+            'marked_by': marked_by,
+            'marked_at': att_entry.get('marked_at', '') if att_entry else ''
+        })
+
+    from flask import send_file
+    output = export_attendance_excel(test, flat_records)
+    filename = f"Attendance_{test['title'].replace(' ', '_')}.xlsx"
+    return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/tests/<test_id>/export/<format>/<report_type>')
 def export_seating(test_id, format, report_type):
