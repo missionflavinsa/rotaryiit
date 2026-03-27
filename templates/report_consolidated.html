@@ -40,7 +40,7 @@
                                 <div style="font-weight: 800; font-size: 1.1rem;">{{ count }}</div>
                                 <div style="font-size: 0.7rem; color: #444; margin-top: 4px; font-weight: 600;">
                                     {% for set_name, set_count in cell.sets.items()|sort %}
-                                        {{ set_name }}:{{ set_count }}{{ "," if not loop.last else "" }}
+                                        {{ set_name }}={{ set_count }}{{ "," if not loop.last else "" }}
                                     {% endfor %}
                                 </div>
                             {% else %}

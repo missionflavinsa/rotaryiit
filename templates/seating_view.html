@@ -10,8 +10,10 @@
         <div class="dropdown-content">
             <a href="{{ url_for('report_teacher_copy', id=test.id) }}">Printable Report (Grid + List)</a>
             <a href="{{ url_for('report_consolidated', id=test.id) }}">Consolidated Block Summary</a>
-            <a href="{{ url_for('export_seating', test_id=test.id, format='excel', report_type='teacher') }}">Excel (.xlsx)</a>
-            <a href="{{ url_for('export_seating', test_id=test.id, format='pdf', report_type='teacher') }}">PDF (.pdf)</a>
+            <a href="{{ url_for('export_consolidated_excel', id=test.id) }}">Consolidated Excel (.xlsx)</a>
+            <a href="{{ url_for('export_consolidated_pdf', id=test.id) }}">Consolidated PDF (.pdf)</a>
+            <a href="{{ url_for('export_seating', test_id=test.id, format='excel', report_type='teacher') }}">Teacher Excel (.xlsx)</a>
+            <a href="{{ url_for('export_seating', test_id=test.id, format='pdf', report_type='teacher') }}">Teacher PDF (.pdf)</a>
         </div>
     </div>
     <div class="dropdown">

@@ -148,6 +148,7 @@ def export_to_excel(test, arrangements, report_type):
                 'Student Name': arr.student.name,
                 'Exam Room': f"{arr.room.name}-{arr.room.section}",
                 'Seat #': arr.seat_number,
+                'Set Code': getattr(arr, 'paper_set', 'A'),
                 'Original Class': f"{arr.student.classroom.name}-{arr.student.classroom.section}",
                 'Exam Duration': f"{test.duration} mins"
             })
@@ -303,7 +304,7 @@ def export_consolidated_excel(test, rooms, class_names, matrix, room_totals, cla
         for cname in class_names:
             cell = matrix.get(rid, {}).get(cname, {'total': 0, 'sets': {}})
             if cell['total'] > 0:
-                sets_str = ", ".join([f"{s}:{c}" for s, c in sorted(cell['sets'].items())])
+                sets_str = ", ".join([f"{s}={c}" for s, c in sorted(cell['sets'].items())])
                 row[cname] = f"{cell['total']} ({sets_str})"
             else:
                 row[cname] = 0
@@ -345,7 +346,7 @@ def export_consolidated_pdf(test, rooms, class_names, matrix, room_totals, class
         for cname in class_names:
             cell = matrix.get(rid, {}).get(cname, {'total': 0, 'sets': {}})
             if cell['total'] > 0:
-                sets_str = " ".join([f"{s}:{c}" for s, c in sorted(cell['sets'].items())])
+                sets_str = " ".join([f"{s}={c}" for s, c in sorted(cell['sets'].items())])
                 row.append(f"{cell['total']}\n({sets_str})")
             else:
                 row.append("-")
