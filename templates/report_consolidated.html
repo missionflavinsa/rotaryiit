@@ -58,12 +58,18 @@
                 <tr style="background: white; border-top: 2px solid #000;">
                     <td style="border: 1px solid #000; padding: 12px; font-weight: 800; text-align: right;">Class Totals:</td>
                     {% for cname in class_names %}
-                        <td style="border: 1px solid #000; padding: 12px; text-align: center; font-weight: 800;">
-                            {{ class_totals[cname] }}
+                        {% set ct = class_totals[cname] %}
+                        <td style="border: 1px solid #000; padding: 12px; text-align: center;">
+                            <div style="font-weight: 800; font-size: 1.1rem;">{{ ct.total }}</div>
+                            <div style="font-size: 0.7rem; color: #444; margin-top: 4px; font-weight: 600;">
+                                {% for set_name, set_count in ct.sets.items()|sort %}
+                                    {{ set_name }}={{ set_count }}{{ "," if not loop.last else "" }}
+                                {% endfor %}
+                            </div>
                         </td>
                     {% endfor %}
                     <td style="border: 1px solid #000; padding: 12px; text-align: center; font-weight: 900; font-size: 1.1rem;">
-                        {{ class_totals.values()|sum }}
+                        {{ class_totals.values()|map(attribute='total')|sum }}
                     </td>
                 </tr>
             </tfoot>

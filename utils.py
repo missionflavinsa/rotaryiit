@@ -314,8 +314,10 @@ def export_consolidated_excel(test, rooms, class_names, matrix, room_totals, cla
     # Add Class Totals row
     total_row = {'Block / Room': 'Class Totals'}
     for cname in class_names:
-        total_row[cname] = class_totals[cname]
-    total_row['Block Total'] = sum(class_totals.values())
+        ct = class_totals[cname]
+        sets_str = ", ".join([f"{s}={c}" for s, c in sorted(ct['sets'].items())])
+        total_row[cname] = f"{ct['total']} ({sets_str})"
+    total_row['Block Total'] = sum(c['total'] for c in class_totals.values())
     rows.append(total_row)
     
     df = pd.DataFrame(rows)
@@ -356,8 +358,10 @@ def export_consolidated_pdf(test, rooms, class_names, matrix, room_totals, class
     # Totals Row
     total_row = ['Class Totals']
     for cname in class_names:
-        total_row.append(str(class_totals[cname]))
-    total_row.append(str(sum(class_totals.values())))
+        ct = class_totals[cname]
+        sets_str = " ".join([f"{s}={c}" for s, c in sorted(ct['sets'].items())])
+        total_row.append(f"{ct['total']}\n({sets_str})")
+    total_row.append(str(sum(c['total'] for c in class_totals.values())))
     data.append(total_row)
     
     # Estimate column widths: first col wider, others equal

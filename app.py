@@ -734,26 +734,32 @@ def report_teacher_copy(id):
     return render_template('report_teacher_copy.html', test=test, detailed_rooms=detailed_rooms)
 
 @app.route('/tests/<id>/report/consolidated')
-def report_consolidated(id):
+def _get_consolidated_data(id):
     doc = db.collection('tests').document(str(id)).get()
     if not doc.exists:
-        flash('Test not found!')
-        return redirect(url_for('list_tests'))
-    
+        return None, None, None, None, None, None
+        
     test = doc.to_dict() | {'id': doc.id}
     arrangements_docs = db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', str(id))).get()
     
-    # Rebuild logic with pre-fetched rooms and students
     arrangements = []
+    students_lookup = {}
+    classrooms_lookup = {}
+    
     for a_doc in arrangements_docs:
         a = a_doc.to_dict() | {'id': a_doc.id}
-        s_doc = db.collection('students').document(str(a['student_id'])).get()
-        if s_doc.exists:
-            s_data = s_doc.to_dict() | {'id': s_doc.id}
-            c_doc = db.collection('classrooms').document(str(s_data['classroom_id'])).get()
-            s_data['classroom'] = (c_doc.to_dict() | {'id': c_doc.id}) if c_doc.exists else {}
-            a['student'] = type('obj', (object,), s_data)
-            a['student'].classroom = type('obj', (object,), s_data['classroom'])
+        s_id = a['student_id']
+        if s_id not in students_lookup:
+            s_doc = db.collection('students').document(str(s_id)).get()
+            if s_doc.exists:
+                s_data = s_doc.to_dict() | {'id': s_doc.id}
+                c_doc = db.collection('classrooms').document(str(s_data['classroom_id'])).get()
+                s_data['classroom'] = (c_doc.to_dict() | {'id': c_doc.id}) if c_doc.exists else {}
+                students_lookup[s_id] = type('obj', (object,), s_data)
+                students_lookup[s_id].classroom = type('obj', (object,), s_data['classroom'])
+        
+        if s_id in students_lookup:
+            a['student'] = students_lookup[s_id]
             arrangements.append(type('obj', (object,), a))
 
     active_room_ids = sorted(list(set(str(a.room_id) for a in arrangements)))
@@ -772,7 +778,27 @@ def report_consolidated(id):
         matrix[str(a.room_id)][class_key]['sets'][p_set] = matrix[str(a.room_id)][class_key]['sets'].get(p_set, 0) + 1
         
     room_totals = {rid: sum(matrix[rid][cname]['total'] for cname in class_names) for rid in active_room_ids}
-    class_totals = {cname: sum(matrix[rid][cname]['total'] for rid in active_room_ids) for cname in class_names}
+    
+    # Calculate detailed class totals (including set counts globally for the class)
+    class_totals = {}
+    for cname in class_names:
+        total = 0
+        sets = {}
+        for rid in active_room_ids:
+            cell = matrix[rid][cname]
+            total += cell['total']
+            for s, count in cell['sets'].items():
+                sets[s] = sets.get(s, 0) + count
+        class_totals[cname] = {'total': total, 'sets': sets}
+        
+    return test, rooms, class_names, matrix, room_totals, class_totals
+
+@app.route('/tests/<id>/consolidated')
+def report_consolidated(id):
+    test, rooms, class_names, matrix, room_totals, class_totals = _get_consolidated_data(id)
+    if not test:
+        flash('Test not found!')
+        return redirect(url_for('list_tests'))
     
     return render_template('report_consolidated.html', 
                            test=test, rooms=rooms, class_names=class_names, 
@@ -780,84 +806,26 @@ def report_consolidated(id):
 
 @app.route('/tests/<id>/consolidated_export/excel')
 def export_consolidated_excel(id):
-    doc = db.collection('tests').document(str(id)).get()
-    if not doc.exists: return redirect(url_for('list_tests'))
-    test_data = doc.to_dict() | {'id': doc.id}
-    test = type('obj', (object,), test_data)
-
-    arrangements_docs = db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', str(id))).get()
-    arrangements = []
-    for a_doc in arrangements_docs:
-        a = a_doc.to_dict() | {'id': a_doc.id}
-        s_doc = db.collection('students').document(str(a['student_id'])).get()
-        if s_doc.exists:
-            s_data = s_doc.to_dict() | {'id': s_doc.id}
-            c_doc = db.collection('classrooms').document(str(s_data['classroom_id'])).get()
-            s_data['classroom'] = (c_doc.to_dict() | {'id': c_doc.id}) if c_doc.exists else {}
-            a['student'] = type('obj', (object,), s_data)
-            a['student'].classroom = type('obj', (object,), s_data['classroom'])
-            arrangements.append(type('obj', (object,), a))
-
-    active_room_ids = sorted(list(set(str(a.room_id) for a in arrangements)))
-    rooms = []
-    for rid in active_room_ids:
-        r_doc = db.collection('classrooms').document(str(rid)).get()
-        if r_doc.exists: rooms.append(type('obj', (object,), r_doc.to_dict() | {'id': r_doc.id}))
-        
-    class_names = sorted(list(set(f"{a.student.classroom.name}-{a.student.classroom.section}" for a in arrangements)))
-    matrix = {rid: {cname: {'total': 0, 'sets': {}} for cname in class_names} for rid in active_room_ids}
-    for a in arrangements:
-        class_key = f"{a.student.classroom.name}-{a.student.classroom.section}"
-        p_set = getattr(a, 'paper_set', 'A')
-        matrix[str(a.room_id)][class_key]['total'] += 1
-        matrix[str(a.room_id)][class_key]['sets'][p_set] = matrix[str(a.room_id)][class_key]['sets'].get(p_set, 0) + 1
-        
-    room_totals = {rid: sum(matrix[rid][cname]['total'] for cname in class_names) for rid in active_room_ids}
-    class_totals = {cname: sum(matrix[rid][cname]['total'] for rid in active_room_ids) for cname in class_names}
+    test, rooms, class_names, matrix, room_totals, class_totals = _get_consolidated_data(id)
+    if not test: return redirect(url_for('list_tests'))
     
+    # Convert test from object to dict if it was wrapped in type('obj')
+    test_obj = test if hasattr(test, 'title') else type('obj', (object,), test)
+
     from utils import export_consolidated_excel as excel_func
-    output = excel_func(test, rooms, class_names, matrix, room_totals, class_totals)
-    return send_file(output, as_attachment=True, download_name=f"Consolidated_Summary_{test.title}.xlsx")
+    output = excel_func(test_obj, rooms, class_names, matrix, room_totals, class_totals)
+    return send_file(output, as_attachment=True, download_name=f"Consolidated_Summary_{test_obj.title}.xlsx")
 
 @app.route('/tests/<id>/consolidated_export/pdf')
 def export_consolidated_pdf(id):
-    doc = db.collection('tests').document(str(id)).get()
-    if not doc.exists: return redirect(url_for('list_tests'))
-    test_data = doc.to_dict() | {'id': doc.id}
-    test = type('obj', (object,), test_data)
-
-    arrangements_docs = db.collection('seating_arrangements').where(filter=FieldFilter('test_id', '==', str(id))).get()
-    arrangements = []
-    for a_doc in arrangements_docs:
-        a = a_doc.to_dict() | {'id': a_doc.id}
-        s_doc = db.collection('students').document(str(a['student_id'])).get()
-        if s_doc.exists:
-            s_data = s_doc.to_dict() | {'id': s_doc.id}
-            c_doc = db.collection('classrooms').document(str(s_data['classroom_id'])).get()
-            s_data['classroom'] = (c_doc.to_dict() | {'id': c_doc.id}) if c_doc.exists else {}
-            a['student'] = type('obj', (object,), s_data)
-            a['student'].classroom = type('obj', (object,), s_data['classroom'])
-            arrangements.append(type('obj', (object,), a))
-
-    active_room_ids = sorted(list(set(str(a.room_id) for a in arrangements)))
-    rooms = []
-    for rid in active_room_ids:
-        r_doc = db.collection('classrooms').document(str(rid)).get()
-        if r_doc.exists: rooms.append(type('obj', (object,), r_doc.to_dict() | {'id': r_doc.id}))
-        
-    class_names = sorted(list(set(f"{a.student.classroom.name}-{a.student.classroom.section}" for a in arrangements)))
-    matrix = {rid: {cname: {'total': 0, 'sets': {}} for cname in class_names} for rid in active_room_ids}
-    for a in arrangements:
-        class_key = f"{a.student.classroom.name}-{a.student.classroom.section}"
-        p_set = getattr(a, 'paper_set', 'A')
-        matrix[str(a.room_id)][class_key]['total'] += 1
-        matrix[str(a.room_id)][class_key]['sets'][p_set] = matrix[str(a.room_id)][class_key]['sets'].get(p_set, 0) + 1
-    room_totals = {rid: sum(matrix[rid][cname]['total'] for cname in class_names) for rid in active_room_ids}
-    class_totals = {cname: sum(matrix[rid][cname]['total'] for rid in active_room_ids) for cname in class_names}
+    test, rooms, class_names, matrix, room_totals, class_totals = _get_consolidated_data(id)
+    if not test: return redirect(url_for('list_tests'))
     
+    test_obj = test if hasattr(test, 'title') else type('obj', (object,), test)
+
     from utils import export_consolidated_pdf as pdf_func
-    output = pdf_func(test, rooms, class_names, matrix, room_totals, class_totals)
-    return send_file(output, as_attachment=True, download_name=f"Consolidated_Summary_{test.title}.pdf")
+    output = pdf_func(test_obj, rooms, class_names, matrix, room_totals, class_totals)
+    return send_file(output, as_attachment=True, download_name=f"Consolidated_Summary_{test_obj.title}.pdf")
 
 @app.route('/tests/<test_id>/save_seating', methods=['POST'])
 def save_seating(test_id):
