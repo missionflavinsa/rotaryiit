@@ -733,7 +733,6 @@ def report_teacher_copy(id):
             
     return render_template('report_teacher_copy.html', test=test, detailed_rooms=detailed_rooms)
 
-@app.route('/tests/<id>/report/consolidated')
 def _get_consolidated_data(id):
     doc = db.collection('tests').document(str(id)).get()
     if not doc.exists:
@@ -793,7 +792,7 @@ def _get_consolidated_data(id):
         
     return test, rooms, class_names, matrix, room_totals, class_totals
 
-@app.route('/tests/<id>/consolidated')
+@app.route('/tests/<id>/report/consolidated')
 def report_consolidated(id):
     test, rooms, class_names, matrix, room_totals, class_totals = _get_consolidated_data(id)
     if not test:
