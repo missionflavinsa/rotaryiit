@@ -19,24 +19,38 @@ export default function HomeScreen({ route, navigation }) {
       const testsSnap = await getDocs(collection(db, 'tests'));
       const assignedTests = [];
 
-      testsSnap.forEach((doc) => {
-        const test = { id: doc.id, ...doc.data() };
+      for (const d of testsSnap.docs) {
+        const test = { id: d.id, ...d.data() };
         const blocks = test.exam_blocks || [];
 
         // Find blocks assigned to this supervisor
         const myBlocks = blocks.filter(b => b.supervisor_id === supervisor.id);
         if (myBlocks.length > 0) {
+          // Fetch room names for my blocks
+          const myRoomInfos = [];
+          for (const block of myBlocks) {
+            const { getDoc, doc } = await import('firebase/firestore');
+            const rDoc = await getDoc(doc(db, 'classrooms', block.room_id));
+            if (rDoc.exists()) {
+              const r = rDoc.data();
+              myRoomInfos.push(`${r.name}-${r.section}`);
+            } else {
+              myRoomInfos.push('Unknown Room');
+            }
+          }
+
           assignedTests.push({
             ...test,
             myRoomIds: myBlocks.map(b => b.room_id),
+            myRoomNames: myRoomInfos.join(', '),
           });
         }
-      });
+      }
 
       // Sort by date (newest first)
       assignedTests.sort((a, b) => {
-        const dateA = a.date ? new Date(a.date) : new Date(0);
-        const dateB = b.date ? new Date(b.date) : new Date(0);
+        const dateA = a.date?.toDate ? a.date.toDate() : (a.date ? new Date(a.date) : new Date(0));
+        const dateB = b.date?.toDate ? b.date.toDate() : (b.date ? new Date(b.date) : new Date(0));
         return dateB - dateA;
       });
 
@@ -58,8 +72,10 @@ export default function HomeScreen({ route, navigation }) {
   };
 
   const renderTest = ({ item }) => {
-    const date = item.date
-      ? new Date(item.date).toLocaleDateString('en-IN', {
+    // Handle Firestore Timestamp vs regular Date string
+    const dateObj = item.date?.toDate ? item.date.toDate() : (item.date ? new Date(item.date) : null);
+    const dateStr = dateObj && !isNaN(dateObj)
+      ? dateObj.toLocaleDateString('en-IN', {
           day: 'numeric', month: 'short', year: 'numeric'
         })
       : 'No date';
@@ -80,7 +96,7 @@ export default function HomeScreen({ route, navigation }) {
         <View style={styles.cardMeta}>
           <View style={styles.metaItem}>
             <Ionicons name="calendar-outline" size={14} color="#888" />
-            <Text style={styles.metaText}>{date}</Text>
+            <Text style={styles.metaText}>{dateStr}</Text>
           </View>
           <View style={styles.metaItem}>
             <Ionicons name="time-outline" size={14} color="#888" />
@@ -88,11 +104,11 @@ export default function HomeScreen({ route, navigation }) {
           </View>
           <View style={styles.metaItem}>
             <Ionicons name="business-outline" size={14} color="#888" />
-            <Text style={styles.metaText}>{item.myRoomIds.length} room(s)</Text>
+            <Text style={styles.metaText}>{item.myRoomNames || 'No Rooms'}</Text>
           </View>
         </View>
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>{item.paper_sets || 2} Sets</Text>
+          <Text style={styles.badgeText}>Sets: {item.paper_sets || 'A,B,C,D'}</Text>
         </View>
       </TouchableOpacity>
     );

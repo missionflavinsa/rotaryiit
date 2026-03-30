@@ -8,7 +8,9 @@
     "splash": {
       "backgroundColor": "#0a0620"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.rotaryiit.teacher"
@@ -18,6 +20,10 @@
         "backgroundColor": "#0a0620"
       },
       "package": "com.rotaryiit.teacher"
-    }
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-font"
+    ]
   }
 }

@@ -11,6 +11,7 @@ import { auth, db } from '../firebaseConfig';
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -21,12 +22,13 @@ export default function LoginScreen({ navigation }) {
 
     setLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const cleanEmail = email.trim().toLowerCase();
+      const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
       
-      // Find supervisor document by email
+      // Find supervisor document by email (normalized)
       const supQuery = query(
         collection(db, 'supervisors'),
-        where('email', '==', email)
+        where('email', '==', cleanEmail)
       );
       const supSnap = await getDocs(supQuery);
 
@@ -40,11 +42,16 @@ export default function LoginScreen({ navigation }) {
 
       navigation.replace('Home', { supervisor });
     } catch (error) {
+      console.log('Login Error:', error.code, error.message);
       let msg = 'Login failed. Please try again.';
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         msg = 'Invalid email or password.';
       } else if (error.code === 'auth/too-many-requests') {
         msg = 'Too many attempts. Try again later.';
+      } else if (error.code === 'permission-denied') {
+        msg = 'Firebase Permission Denied. Check Firestore rules and ensure your account has auth_uid set in Admin Panel.';
+      } else {
+        msg = `Error: ${error.code}\n${error.message}`;
       }
       Alert.alert('Login Failed', msg);
     }
@@ -78,14 +85,22 @@ export default function LoginScreen({ navigation }) {
           />
 
           <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="••••••••"
-            placeholderTextColor="#666"
-            secureTextEntry
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="••••••••"
+              placeholderTextColor="#666"
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity 
+              style={styles.eyeIcon} 
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Text style={{ color: '#a78bfa', fontSize: 12 }}>{showPassword ? 'HIDE' : 'SHOW'}</Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
@@ -151,13 +166,21 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
     padding: 14,
     color: '#fff',
     fontSize: 16,
+  },
+  passwordContainer: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  eyeIcon: {
+    paddingHorizontal: 15,
   },
   button: {
     backgroundColor: '#7c3aed',

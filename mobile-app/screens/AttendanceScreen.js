@@ -138,7 +138,7 @@ export default function AttendanceScreen({ route }) {
         paper_set: student.paper_set,
         status: status,
         marked_at: new Date().toISOString(),
-        marked_by: supervisor.email || supervisor.name,
+        marked_by: supervisor.name || supervisor.email,
       });
 
       // Update local state
